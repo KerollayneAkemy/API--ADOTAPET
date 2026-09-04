@@ -2,6 +2,8 @@
 
 Atividade prática de otimização da arquitetura da API AdotaPet.
 
+Discentes: @analuiza2431, @emily2311 e @KerollayneAkemy
+
 A proposta analisa a arquitetura atual e apresenta melhorias para quatro atributos de qualidade:
 
 - Disponibilidade
