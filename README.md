@@ -1,16 +1,19 @@
-# AdotaPet — Atividade de Otimização da Arquitetura
+# AdotaPet — Otimização da Arquitetura
 
-Este diretório contém a documentação para a atividade prática.
+Atividade prática de otimização da arquitetura da API AdotaPet.
 
-Arquivos:
-- `arquitetura-otimizada.md`: análise dos problemas e justificativa das 8 táticas.
-- `diagramas.md`: desenho arquitetural comentado em Mermaid.
+A proposta analisa a arquitetura atual e apresenta melhorias para quatro atributos de qualidade:
 
-### Quantidade exigida
+- Disponibilidade
+- Desempenho
+- Segurança
+- Resiliência
 
-- Disponibilidade: 2 táticas
-- Desempenho: 2 táticas
-- Segurança: 2 táticas
-- Resiliência: 2 táticas
+Foram utilizadas duas táticas arquiteturais para cada atributo, totalizando 8 táticas.
 
-Total: **8 táticas arquiteturais**.
+## Estrutura
+
+```text
+docs/
+├── README.md
+└── arquitetura-otimizada.md
