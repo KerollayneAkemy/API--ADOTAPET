@@ -1,0 +1,14 @@
+flowchart TB
+  http["Apresentação HTTP<br/>Controllers, DTOs e AuthGuard"]
+  services["Regras de aplicação<br/>AuthService, AnimalsService e ApplicationsService"]
+  domain["Modelo de domínio<br/>Interfaces User, Animal e Application"]
+  store["Armazenamento local<br/>StoreService em PersistenceModule"]
+  memory["Maps em memória<br/>Dados carregados e sessões temporárias"]
+  http -->|Chama| services
+  http -.->|Usa tipos| domain
+  services -.->|Usa tipos| domain
+  services -->|Acessa diretamente| store
+  store -.->|Usa tipos| domain
+  store -->|Mantém| memory
+  disk[("Arquivo JSON<br/>Usuários, animais e pedidos")]
+  store -->|"Carrega e confirma alterações"| disk

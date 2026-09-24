@@ -1,0 +1,53 @@
+erDiagram
+  direction LR
+  USERS ||--o{ ANIMALS : responsavel
+  USERS ||--o{ APPLICATIONS : solicita
+  ANIMALS ||--o{ APPLICATIONS : recebe
+  USERS ||--o{ IDEMPOTENCY_RECORDS : executa
+
+  USERS {
+    uuid id PK
+    varchar name
+    varchar email UK
+    text password_hash
+    varchar role
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  ANIMALS {
+    uuid id PK
+    uuid ong_id FK
+    varchar name
+    varchar species
+    varchar breed
+    varchar sex
+    varchar size
+    varchar city
+    char state
+    int age
+    text description
+    varchar status
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  APPLICATIONS {
+    uuid id PK
+    uuid animal_id FK
+    uuid adopter_id FK
+    text reason
+    varchar status
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  IDEMPOTENCY_RECORDS {
+    uuid id PK
+    uuid user_id FK
+    varchar method
+    varchar resource_path
+    varchar key
+    char request_hash
+    int response_status
+    jsonb response_body
+    timestamptz created_at
+    timestamptz expires_at
+  }

@@ -1,0 +1,8 @@
+flowchart TB
+  v["Visitante<br/>Pessoa<br/>Consulta animais e cria conta"]
+  a["Adotante<br/>Pessoa<br/>Solicita e acompanha adoções"]
+  o["ONG ou administrador<br/>Pessoa<br/>Cadastra animais e decide seus pedidos"]
+  s["AdotaPet<br/>Sistema de software<br/>API local de adoção de animais"]
+  v -->|HTTP / JSON| s
+  a -->|HTTP / JSON e token de sessão| s
+  o -->|HTTP / JSON e token de sessão| s

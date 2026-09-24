@@ -1,0 +1,24 @@
+flowchart TB
+  client["Cliente HTTP / navegador<br/>Software externo ao container"]
+  subgraph api["Container AdotaPet API — Node.js e NestJS"]
+    entry["Entrada HTTP<br/>Controllers / DTOs / ValidationPipe<br/>Rotas, validação e Swagger"]
+    guard["Autenticação<br/>AuthGuard / CurrentUser<br/>Resolução do usuário por token"]
+    auth["Identidade<br/>AuthService / TypeScript<br/>Cadastro, senha e sessões"]
+    animals["Catálogo<br/>AnimalsService / TypeScript<br/>Consulta e cadastro de animais"]
+    apps["Adoções<br/>ApplicationsService / TypeScript<br/>Solicitação e decisão de pedidos"]
+    health["Saúde<br/>HealthController / TypeScript<br/>Resposta de processo ativo"]
+    store["Persistência local<br/>StoreService / Maps + JSON<br/>commit, recuperação e gravação local"]
+    entry -->|Rotas protegidas| guard
+    guard -->|Valida sessão| auth
+    entry -->|Cadastro e login| auth
+    entry -->|Animais| animals
+    entry -->|Pedidos| apps
+    entry -->|Saúde| health
+    apps -->|Consulta animal| animals
+    auth -->|Lê e grava| store
+    animals -->|Lê e grava| store
+    apps -->|Lê e grava| store
+  end
+  disk[("Arquivo JSON local<br/>Usuários, animais e pedidos")]
+  store -->|"Leitura e substituição do arquivo"| disk
+  client -->|HTTP / JSON| entry

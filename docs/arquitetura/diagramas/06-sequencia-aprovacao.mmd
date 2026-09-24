@@ -1,0 +1,28 @@
+sequenceDiagram
+  autonumber
+  actor ONG as ONG ou ADMIN responsável
+  participant C as Controller e AuthGuard
+  participant S as ApplicationsService
+  participant M as StoreService
+  participant D as Arquivo JSON
+  ONG->>C: PATCH approve + Bearer
+  C->>C: Validar sessão e UUID
+  C->>S: decide(user, id, true)
+  S->>S: Conferir existência, responsável e estados
+  Note over C,S: Erros 400, 401, 403, 404 ou 409 encerram a chamada
+  S->>M: commit(callback)
+  M->>M: Copiar estado anterior
+  M->>S: Executar callback síncrono
+  S->>M: Aprovar pedido, adotar animal e recusar concorrentes
+  M->>D: Escrever temporário, sincronizar e renomear
+  alt Gravação concluída
+    D-->>M: Arquivo substituído
+    M-->>S: Alterações confirmadas
+    S-->>C: Solicitação APROVADA
+    C-->>ONG: 200 JSON
+  else Falha na gravação
+    M->>M: Restaurar estado anterior em memória
+    M-->>C: ServiceUnavailableException
+    C-->>ONG: 503 JSON padrão NestJS
+  end
+  Note over M,D: Uma instância local, sem transação em banco externo

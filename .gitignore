@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+.env
+*.tsbuildinfo
+~$*.docx
+docs/**/.build/
+data/

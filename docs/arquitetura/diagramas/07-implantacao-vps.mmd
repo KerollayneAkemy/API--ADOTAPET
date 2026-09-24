@@ -1,0 +1,24 @@
+flowchart TB
+  client["Cliente HTTP ou navegador com Swagger"]
+  subgraph vps["VPS Linux - implantacao proposta"]
+    subgraph docker["Docker Compose"]
+      proxy["Nginx<br/>Portas publicas 80 e 443"]
+      api["AdotaPet API<br/>NestJS - porta interna 3000"]
+      migration["Job de migracao<br/>Executa antes da API"]
+      postgres[("PostgreSQL<br/>Porta interna 5432")]
+      redis[("Redis<br/>Porta interna 6379")]
+    end
+    pgdata[("Volume persistente PostgreSQL")]
+    redisdata[("Volume Redis - AOF")]
+    logs["Logs JSON no stdout<br/>Rotacao pelo Docker"]
+  end
+  backups[("Backup externo da VPS")]
+  client -->|"HTTPS"| proxy
+  proxy -->|"HTTP na rede Docker"| api
+  api -->|"SQL"| postgres
+  api -->|"RESP"| redis
+  migration -->|"Aplica schema"| postgres
+  postgres --- pgdata
+  redis --- redisdata
+  api --> logs
+  pgdata -.->|"Backup programado e teste de restauracao"| backups

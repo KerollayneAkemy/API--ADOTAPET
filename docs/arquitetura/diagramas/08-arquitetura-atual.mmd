@@ -1,0 +1,17 @@
+flowchart TB
+  client["Swagger ou cliente HTTP"]
+  subgraph process["Estado atual - um processo NestJS"]
+    setup["setupApp<br/>Swagger e ValidationPipe"]
+    controllers["AuthController / AnimalsController<br/>ApplicationsController / HealthController"]
+    guard["AuthGuard / CurrentUser<br/>Sessões temporárias em memória"]
+    services["AuthService / AnimalsService / ApplicationsService"]
+    types["domain/entities.ts<br/>User / Animal / Application"]
+    store["StoreService<br/>Maps e arquivo JSON local"]
+  end
+  client -->|"HTTP"| controllers
+  setup -.-> controllers
+  controllers -->|"Rotas protegidas"| guard
+  controllers --> services
+  guard --> services
+  services --> store
+  services -.-> types

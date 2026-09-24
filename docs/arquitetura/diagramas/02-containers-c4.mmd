@@ -1,0 +1,8 @@
+flowchart TB
+  p["Visitante, adotante, ONG e administrador<br/>Pessoas<br/>Navegador ou cliente HTTP"]
+  subgraph system["Sistema AdotaPet — versão local"]
+    api["AdotaPet API<br/>Container de aplicação<br/>Node.js / NestJS / Express<br/>Rotas, regras e Swagger"]
+    disk[("Dados locais<br/>Armazenamento em arquivo JSON<br/>data/adotapet.json<br/>Usuários, animais e solicitações")]
+    api -->|"Lê ao iniciar; grava a cada alteração"| disk
+  end
+  p -->|"HTTP / JSON — porta 3000"| api

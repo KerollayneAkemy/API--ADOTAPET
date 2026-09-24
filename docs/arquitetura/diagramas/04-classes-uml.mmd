@@ -1,0 +1,56 @@
+classDiagram
+direction LR
+class User {
+  <<interface>>
+  +string id
+  +string name
+  +string email
+  +string passwordHash
+  +Role role
+}
+class Animal {
+  <<interface>>
+  +string id
+  +string name
+  +string species
+  +string breed
+  +string sex
+  +string size
+  +string city
+  +string state
+  +number age
+  +string description
+  +AnimalStatus status
+  +string ongId
+}
+class Application {
+  <<interface>>
+  +string id
+  +string animalId
+  +string adopterId
+  +string reason
+  +ApplicationStatus status
+}
+class Role {
+  <<enumeration>>
+  ADMIN
+  ONG
+  ADOTANTE
+}
+class AnimalStatus {
+  <<enumeration>>
+  DISPONIVEL
+  ADOTADO
+}
+class ApplicationStatus {
+  <<enumeration>>
+  PENDENTE
+  APROVADA
+  RECUSADA
+}
+User "1" --> "0..*" Animal : responsavel por
+User "1" --> "0..*" Application : solicita
+Animal "1" --> "0..*" Application : recebe
+User --> Role : possui
+Animal --> AnimalStatus : possui
+Application --> ApplicationStatus : possui
