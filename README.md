@@ -1,149 +1,228 @@
-# AdotaPet API
+# 🐾 AdotaPet
 
-API NestJS para adoção de animais, com execução local sem Docker e persistência local em arquivo JSON.
+**Uma API para conectar animais a novos lares.**
 
-## Executar
+O AdotaPet organiza o processo de adoção: ONGs cadastram animais, pessoas interessadas enviam solicitações e os responsáveis acompanham e decidem cada pedido. O projeto foi desenvolvido para a disciplina de **Arquitetura de Software e Computação em Nuvem**, aplicando organização modular, validação de dados e controle de acesso.
 
-Requisitos: Node.js 20 ou superior e npm.
+[Funcionalidades](#funcionalidades) · [Arquitetura](#arquitetura) · [Documentação](#documentação) · [Como rodar](#como-rodar)
+
+---
+
+## Sobre o projeto
+
+A aplicação oferece uma API REST com respostas em JSON e documentação interativa pelo Swagger. O fluxo principal acompanha o animal desde seu cadastro até a aprovação de uma adoção.
+
+A versão atual funciona localmente e salva os dados em arquivo JSON. Usuários, animais e solicitações continuam disponíveis depois de reiniciar a API.
+
+## Funcionalidades
+
+- **Cadastro e login:** criação de contas e autenticação por token de acesso.
+- **Catálogo de animais:** cadastro, consulta por identificador e busca com filtros.
+- **Solicitações de adoção:** envio de pedidos e acompanhamento das próprias solicitações.
+- **Gestão dos pedidos:** aprovação ou recusa pelo responsável pelo animal.
+- **Persistência local:** recuperação dos dados após reiniciar a aplicação.
+- **Documentação interativa:** exemplos de entrada e resposta para testar as rotas no Swagger.
+
+### Perfis de acesso
+
+| Perfil | O que pode fazer |
+| --- | --- |
+| Visitante | Consultar animais, criar uma conta e acessar a documentação. |
+| Adotante | Solicitar adoção e consultar seus próprios pedidos. |
+| ONG | Cadastrar animais e decidir os pedidos dos animais sob sua responsabilidade. |
+| Administrador | Cadastrar animais e decidir os pedidos dos animais que cadastrou. |
+
+O cadastro público aceita os perfis **ONG** e **ADOTANTE**. A decisão de adoção exige vínculo com o animal, inclusive para o administrador.
+
+### Fluxo de adoção
+
+```mermaid
+flowchart TD
+    A[ONG cadastra um animal] --> B[Animal disponível no catálogo]
+    B --> C[Adotante envia uma solicitação]
+    C --> D[Pedido pendente]
+    D --> E{Decisão do responsável}
+    E -->|Aprovar| F[Pedido aprovado e animal adotado]
+    E -->|Recusar| G[Pedido recusado e animal disponível]
+    F --> H[Outros pedidos pendentes são recusados]
+```
+
+Um adotante não pode ter dois pedidos pendentes para o mesmo animal. Animais adotados não recebem novos pedidos, e solicitações já analisadas não podem ser decididas novamente.
+
+## Tecnologias
+
+| Tecnologia | Papel no projeto |
+| --- | --- |
+| TypeScript | Linguagem do código-fonte e definição dos tipos. |
+| Node.js | Ambiente de execução da API. |
+| NestJS 11 e Express | Estrutura dos módulos, injeção de dependências e rotas HTTP. |
+| class-validator e class-transformer | Validação e transformação dos dados recebidos. |
+| OpenAPI / Swagger | Documentação e experimentação das rotas. |
+| Jest e NestJS Testing | Testes automáticos de integração. |
+| Prettier | Padronização da formatação do código. |
+| Mermaid | Diagramas editáveis da arquitetura e dos fluxos. |
+
+## Arquitetura
+
+O projeto utiliza um **monólito modular com separação de responsabilidades**. Os módulos compartilham o mesmo processo e são organizados por funcionalidade.
+
+| Responsabilidade | Implementação |
+| --- | --- |
+| Receber requisições HTTP | Controllers. |
+| Validar entradas | DTOs e validação global. |
+| Autenticar requisições | AuthGuard e AuthService. |
+| Aplicar regras e permissões | Services de cada módulo. |
+| Definir os modelos | Interfaces e tipos de domínio. |
+| Carregar e salvar os dados | StoreService e validação do arquivo persistido. |
+
+### Organização das pastas
+
+```text
+src/
+├── common/                     # Recursos compartilhados
+│   ├── decorators/             # Tratamento de campos de entrada
+│   ├── security/               # Hash e verificação de senhas
+│   └── swagger/                # Exemplos e contratos de resposta
+├── domain/                     # User, Animal e Application
+├── infrastructure/
+│   └── persistence/            # Leitura, validação e gravação em JSON
+├── modules/
+│   ├── auth/                   # Cadastro, login e autenticação
+│   ├── animals/                # Catálogo e cadastro de animais
+│   ├── applications/           # Solicitações e decisões de adoção
+│   └── health/                 # Verificação de disponibilidade da API
+├── app.module.ts               # Integração dos módulos
+├── setup-app.ts                # Configuração HTTP e Swagger
+└── main.ts                     # Inicialização do servidor
+
+test/                           # Testes HTTP e de persistência
+docs/arquitetura/                # Relatório e diagramas
+```
+
+Os módulos separam controllers, services e DTOs conforme a necessidade. O código editável fica em `src/`; `dist/` contém o JavaScript gerado pela compilação e `node_modules/` guarda as bibliotecas instaladas. As duas últimas pastas são geradas localmente e ficam fora do GitHub.
+
+## Autenticação e armazenamento
+
+As senhas são armazenadas como **hash scrypt com salt individual**. O login retorna um token opaco, válido por 24 horas, enviado no cabeçalho `Authorization: Bearer <token>`. A implementação atual não utiliza JWT.
+
+Os dados de negócio são salvos em `data/adotapet.json`. As sessões ficam somente em memória: após reiniciar, os cadastros permanecem, mas é necessário fazer novo login.
+
+- As alterações são gravadas antes da resposta de sucesso.
+- Uma falha de gravação retorna `503` e restaura o estado anterior em memória.
+- Um arquivo existente inválido impede a inicialização e não é sobrescrito.
+- O armazenamento atual deve ser utilizado por **um único processo da API por arquivo**.
+
+A pasta `data/`, os arquivos `.env` e as preferências locais do editor não são versionados. Preserve os dados ao atualizar a aplicação e mantenha backups privados.
+
+## Documentação
+
+📄 **[Consultar o relatório acadêmico em PDF](docs/arquitetura/AdotaPet.pdf)**
+
+Os diagramas estão disponíveis em arquivos `.mmd`, editáveis no Mermaid:
+
+| Visão | Diagrama |
+| --- | --- |
+| Contexto do sistema | [Contexto C4](docs/arquitetura/diagramas/01-contexto-c4.mmd) |
+| Aplicação e armazenamento | [Containers C4](docs/arquitetura/diagramas/02-containers-c4.mmd) |
+| Componentes internos | [Componentes C4](docs/arquitetura/diagramas/03-componentes-c4.mmd) |
+| Modelagem do domínio | [Classes UML](docs/arquitetura/diagramas/04-classes-uml.mmd) |
+| Aprovação de adoção | [Diagrama de sequência](docs/arquitetura/diagramas/06-sequencia-aprovacao.mmd) |
+| Estrutura atual | [Visão geral](docs/arquitetura/diagramas/08-arquitetura-atual.mmd) e [responsabilidades](docs/arquitetura/diagramas/09-camadas.mmd) |
+
+**Evoluções previstas:** JWT, PostgreSQL, Redis, idempotência, tratamento de erros em Problem Details, logs estruturados, controle de vazão, Docker Compose e implantação em VPS. Esses recursos ainda não fazem parte da execução atual. O [modelo relacional](docs/arquitetura/diagramas/05-modelo-relacional.mmd) e o [diagrama de implantação](docs/arquitetura/diagramas/07-implantacao-vps.mmd) representam propostas futuras.
+
+## Qualidade e testes
+
+Os testes verificam as rotas HTTP, validação, autenticação, permissões, regras de adoção e contratos do Swagger. Também verificam a recuperação dos dados após reiniciar e o comportamento diante de falhas de armazenamento, usando arquivos temporários e dados isolados.
+
+| Comando | Finalidade |
+| --- | --- |
+| `npm test -- --runInBand` | Executar os testes automáticos. |
+| `npm run typecheck` | Verificar tipos, imports e variáveis sem uso. |
+| `npm run format:check` | Conferir a formatação. |
+| `npm run format` | Aplicar o padrão de formatação. |
+| `npm run build` | Compilar a aplicação para a pasta `dist/`. |
+
+---
+
+## Como rodar
+
+### 1. Pré-requisitos
+
+Tenha **Git**, **Node.js 20 ou superior** e **npm** instalados. A versão atual não exige Docker nem um servidor de banco de dados.
+
+### 2. Baixar e instalar
 
 ```bash
+git clone https://github.com/KerollayneAkemy/API--ADOTAPET.git
+cd API--ADOTAPET
 npm ci
+```
+
+Se o projeto já estiver no computador, abra o terminal na pasta que contém o arquivo `package.json` e execute `npm ci`.
+
+### 3. Iniciar a API
+
+```bash
 npm run start:dev
 ```
 
-- Swagger: http://localhost:3000/docs
-- Prefixo das rotas: `/api` (não existe uma página GET `/api`).
-- Saúde: http://localhost:3000/api/health
+Mantenha esse terminal aberto enquanto utiliza a aplicação.
 
-A porta padrão é 3000. Para alterar no PowerShell:
+| Acesso | Endereço |
+| --- | --- |
+| Swagger interativo | http://localhost:3000/docs |
+| Contrato OpenAPI em JSON | http://localhost:3000/docs-json |
+| Saúde da API | http://localhost:3000/api/health |
+
+O prefixo `/api` faz parte das rotas; acessar somente `http://localhost:3000/api` retorna `404` porque não existe uma rota definida nesse endereço.
+
+### 4. Testar uma adoção pelo Swagger
+
+Na primeira execução, quando o arquivo de dados ainda não existe, a API cria a cadela Mel e estas **contas fictícias de demonstração local**:
+
+| Perfil | E-mail | Senha |
+| --- | --- | --- |
+| ONG | ong@adotapet.local | 123456 |
+| Adotante | adotante@adotapet.local | 123456 |
+| Administrador | admin@adotapet.local | 123456 |
+
+1. Abra o Swagger e execute `POST /api/auth/login` com a conta de adotante.
+2. Copie o `accessToken` da resposta. Clique em **Authorize**, cole somente o token e confirme.
+3. Consulte `GET /api/animals` e copie o ID de um animal disponível, sem aspas.
+4. Execute `POST /api/animals/{animalId}/applications` usando esse ID e o corpo abaixo:
+
+   ```json
+   {
+     "reason": "Quero oferecer um lar seguro e carinhoso."
+   }
+   ```
+
+5. Faça login com a ONG responsável e substitua o token em **Authorize**.
+6. Consulte `GET /api/applications/me` e copie o ID da solicitação.
+7. Execute `PATCH /api/applications/{id}/approve` para aprovar ou `PATCH /api/applications/{id}/reject` para recusar.
+
+### 5. Configurações opcionais
+
+Para alterar a porta no PowerShell:
 
 ```powershell
 $env:PORT = '3001'
 npm run start:dev
 ```
 
-A aplicação lê `PORT` do ambiente do processo; arquivos `.env` não são carregados automaticamente.
-
-## Verificação
-
-```bash
-npm run build
-npm run typecheck
-npm test -- --runInBand
-```
-
-Os testes sobem uma instância isolada em porta livre e verificam as rotas HTTP, validação, autenticação, permissões, adoções e schemas do Swagger. Cada teste começa com dados novos.
-
-O comando `typecheck` verifica tipos, imports e variáveis sem uso. O build limpa `dist` antes de compilar, evitando sobras de arquivos removidos.
-
-## Organização
-
-O código editável fica em `src/`. A pasta `dist/` contém o JavaScript gerado por `npm run build` ou `npm run start:dev`; não edite esses arquivos. `node_modules/` contém as bibliotecas instaladas pelo npm. Essas pastas são geradas localmente e não são enviadas ao GitHub. Preferências pessoais do editor em `.vscode/` também ficam somente no computador de cada integrante.
-
-```text
-src/
-  common/                 # Decoradores, segurança e contratos Swagger
-  domain/                 # Entidades e tipos de negócio
-  infrastructure/
-    persistence/          # Arquivo JSON e validação dos dados
-  modules/
-    auth/                 # Cadastro e autenticação
-      controllers/
-      services/
-      guards/
-      dto/
-      auth.module.ts
-    animals/              # Catálogo de animais
-      controllers/
-      services/
-      dto/
-      animals.module.ts
-    applications/         # Solicitações e decisões de adoção
-      controllers/
-      services/
-      dto/
-      applications.module.ts
-    health/               # Saúde da API
-      controllers/
-      health.module.ts
-  app.module.ts
-  setup-app.ts
-  main.ts
-test/                     # Testes HTTP
-docs/arquitetura/          # Documento e diagramas
-```
-
-A organização é modular por funcionalidade e responsabilidade: controllers recebem HTTP, services executam as regras, DTOs validam entradas e domain contém os modelos. A API retorna JSON e não possui camada de views HTML. AppModule importa os módulos. PersistenceModule fornece um único StoreService compartilhado, e AuthModule exporta os recursos de autenticação. As integrações de produção propostas no relatório continuam pendentes.
-
-Use `npm run format` para padronizar o código e `npm run format:check` para conferir a formatação. O padrão usa dois espaços de indentação, aspas simples e largura de referência de 100 caracteres por linha.
-
-## Documentação
-
-- [Trabalho acadêmico em PDF](docs/arquitetura/AdotaPet.pdf)
-
-- [Fontes dos diagramas Mermaid](docs/arquitetura/diagramas/)
-
-Os diagramas C4 descrevem a versão local com persistência JSON, revisada em 24/09/2026. JWT, PostgreSQL, Redis e Docker continuam planejados.
-
-Cada diagrama possui uma única fonte editável em `.mmd`:
-
-| Diagrama | Arquivo | Uso |
-| --- | --- | --- |
-| Responsabilidades | [09-camadas.mmd](docs/arquitetura/diagramas/09-camadas.mmd) | Figura 1 do relatório |
-| Contexto C4 | [01-contexto-c4.mmd](docs/arquitetura/diagramas/01-contexto-c4.mmd) | Figura 2 do relatório |
-| Containers C4 | [02-containers-c4.mmd](docs/arquitetura/diagramas/02-containers-c4.mmd) | Figura 3 do relatório |
-| Componentes C4 | [03-componentes-c4.mmd](docs/arquitetura/diagramas/03-componentes-c4.mmd) | Figura 4 do relatório |
-| Classes UML | [04-classes-uml.mmd](docs/arquitetura/diagramas/04-classes-uml.mmd) | Figura 5 do relatório |
-| Sequência de aprovação | [06-sequencia-aprovacao.mmd](docs/arquitetura/diagramas/06-sequencia-aprovacao.mmd) | Figura 6 do relatório |
-| Visão geral atual | [08-arquitetura-atual.mmd](docs/arquitetura/diagramas/08-arquitetura-atual.mmd) | Complemento da arquitetura |
-| Modelo relacional | [05-modelo-relacional.mmd](docs/arquitetura/diagramas/05-modelo-relacional.mmd) | Proposta para novembro |
-| Implantação em VPS | [07-implantacao-vps.mmd](docs/arquitetura/diagramas/07-implantacao-vps.mmd) | Proposta para novembro |
-
-## Contas locais
-
-| Perfil | E-mail | Senha |
-| --- | --- | --- |
-| ONG | ong@adotapet.local | 123456 |
-| Adotante | adotante@adotapet.local | 123456 |
-| Admin | admin@adotapet.local | 123456 |
-
-Essas contas são criadas automaticamente para demonstração local.
-
-## Fluxo de adoção
-
-1. Faça `POST /api/auth/login` com `email` e `password` de um adotante.
-2. Use o `accessToken` retornado em `Authorization: Bearer <token>`. No botão Authorize do Swagger, informe somente o token.
-3. Consulte `GET /api/animals` e copie o ID de um animal disponível.
-4. Faça `POST /api/animals/{animalId}/applications` com `{"reason":"Quero adotar"}`. O motivo é opcional; `{}` também é aceito.
-5. Entre com a ONG responsável e consulte `GET /api/applications/me`.
-6. Aprove em `PATCH /api/applications/{id}/approve` ou recuse em `PATCH /api/applications/{id}/reject`.
-
-## Contratos e regras
-
-- Cadastro público permite `ONG` ou `ADOTANTE` (padrão). `ADMIN` não pode ser escolhido no cadastro público.
-- E-mails são normalizados para minúsculas; duplicatas retornam 409.
-- Senhas exigem de 6 a 128 caracteres e são armazenadas como hash scrypt com salt individual.
-- Tokens são aleatórios, duram 24 horas e deixam de funcionar após reiniciar a aplicação.
-- Campos desconhecidos, dados inválidos e IDs que não sejam UUID retornam 400. Consulte os campos obrigatórios no Swagger.
-- Rotas protegidas retornam 401 para autenticação ausente/inválida e 403 para usuário sem permissão.
-- ONG e administrador podem cadastrar animais. Apenas o responsável pelo animal pode decidir solicitações.
-- Adotantes veem suas próprias solicitações; ONG e administrador veem as dos animais que cadastraram.
-- Uma aprovação marca o animal como adotado e recusa as demais solicitações pendentes para ele. Solicitações já analisadas não podem ser decididas novamente.
-- Recusar uma solicitação mantém o animal disponível. Duplicatas pendentes e solicitações para animais adotados retornam 409.
-
-## Dados persistentes
-
-A API cria `data/adotapet.json` na primeira execução. As contas de demonstração e Mel são criadas somente quando esse arquivo não existe. Cadastros, solicitações, aprovações e recusas são gravados antes da resposta de sucesso. Não apague a pasta `data` ao atualizar o projeto.
-
-Use somente um processo da API por arquivo; esta implementação não coordena gravações de múltiplas instâncias. PostgreSQL e transações de banco seguem como evolução.
-
-Execute os comandos a partir da raiz do projeto. Para escolher outro arquivo no PowerShell:
+Para escolher outro arquivo de armazenamento:
 
 ```powershell
 $env:DATA_FILE = 'C:\caminho\adotapet.json'
 npm run start:dev
 ```
 
-O arquivo contém dados de cadastro e hashes de senha; mantenha-o privado e faça backups. Tokens de sessão não são salvos. Uma falha de gravação retorna 503 e restaura o estado anterior em memória. Um arquivo existente inválido impede a inicialização e não é sobrescrito; restaure um backup ou corrija os dados.
+A aplicação lê as variáveis do ambiente do processo; arquivos `.env` não são carregados automaticamente. Execute a API a partir da raiz do projeto para utilizar sempre o mesmo caminho padrão de dados.
 
-Os testes usam armazenamento isolado e arquivos temporários. Verificam recuperação após reiniciar, integridade da aprovação e falhas de leitura/gravação, sem alterar os dados da aplicação normal.
+Para executar a versão compilada:
+
+```bash
+npm run build
+npm run start:prod
+```
