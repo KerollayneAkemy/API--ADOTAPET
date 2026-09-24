@@ -38,7 +38,7 @@ O comando `typecheck` verifica tipos, imports e variáveis sem uso. O build limp
 
 ## Organização
 
-O código editável fica em `src/`. A pasta `dist/` contém o JavaScript gerado por `npm run build` ou `npm run start:dev`; não edite esses arquivos. `node_modules/` contém as bibliotecas instaladas pelo npm. Essas duas pastas estão ocultas no explorador de IDEs compatíveis com as configurações do VS Code, incluindo o Antigravity, para destacar o código do projeto. Elas continuam disponíveis no disco e são necessárias para executar a aplicação.
+O código editável fica em `src/`. A pasta `dist/` contém o JavaScript gerado por `npm run build` ou `npm run start:dev`; não edite esses arquivos. `node_modules/` contém as bibliotecas instaladas pelo npm. Essas pastas são geradas localmente e não são enviadas ao GitHub. Preferências pessoais do editor em `.vscode/` também ficam somente no computador de cada integrante.
 
 ```text
 src/

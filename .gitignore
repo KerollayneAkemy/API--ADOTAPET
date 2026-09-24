@@ -6,3 +6,4 @@ coverage/
 ~$*.docx
 docs/**/.build/
 data/
+.vscode/
