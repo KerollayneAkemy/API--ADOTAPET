@@ -79,11 +79,13 @@ Use `npm run format` para padronizar o código e `npm run format:check` para con
 
 ## Documentação
 
+- [Trabalho acadêmico em PDF](docs/arquitetura/AdotaPet.pdf)
+
 - [Fontes dos diagramas Mermaid](docs/arquitetura/diagramas/)
 
 Os diagramas C4 descrevem a versão local com persistência JSON, revisada em 24/09/2026. JWT, PostgreSQL, Redis e Docker continuam planejados.
 
-O relatório acadêmico fica somente no computador do grupo por conter dados pessoais. Cada diagrama possui uma única fonte editável em `.mmd`:
+Cada diagrama possui uma única fonte editável em `.mmd`:
 
 | Diagrama | Arquivo | Uso |
 | --- | --- | --- |
