@@ -7,3 +7,9 @@ coverage/
 docs/**/.build/
 data/
 .vscode/
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+docs/arquitetura/AdotaPet.pdf
