@@ -1,53 +1,47 @@
 erDiagram
-  direction LR
   USERS ||--o{ ANIMALS : responsavel
-  USERS ||--o{ APPLICATIONS : solicita
+  USERS ||--o{ APPLICATIONS : adota
   ANIMALS ||--o{ APPLICATIONS : recebe
-  USERS ||--o{ IDEMPOTENCY_RECORDS : executa
 
   USERS {
     uuid id PK
-    varchar name
-    varchar email UK
+    text name
+    text email UK
     text password_hash
-    varchar role
-    timestamptz created_at
-    timestamptz updated_at
+    text role
   }
   ANIMALS {
     uuid id PK
-    uuid ong_id FK
-    varchar name
-    varchar species
-    varchar breed
-    varchar sex
-    varchar size
-    varchar city
+    text name
+    text species
+    text breed
+    text sex
+    text size
+    text city
     char state
-    int age
+    integer age
     text description
-    varchar status
-    timestamptz created_at
-    timestamptz updated_at
+    text status
+    uuid ong_id FK
+    text_array photos
   }
   APPLICATIONS {
     uuid id PK
     uuid animal_id FK
     uuid adopter_id FK
     text reason
-    varchar status
+    text status
     timestamptz created_at
-    timestamptz updated_at
   }
-  IDEMPOTENCY_RECORDS {
-    uuid id PK
-    uuid user_id FK
-    varchar method
-    varchar resource_path
-    varchar key
+  IDEMPOTENCY_KEYS {
+    text scope_key PK
+    text idempotency_key PK
     char request_hash
-    int response_status
-    jsonb response_body
+    integer response_status
+    jsonb response
     timestamptz created_at
-    timestamptz expires_at
   }
+
+  %% Restricoes parciais do PostgreSQL implementadas na migracao 001:
+  %% um pedido PENDENTE por adotante/animal e uma APROVADA por animal.
+  %% Checks validam papeis, status e idade; FKs impedem orfaos.

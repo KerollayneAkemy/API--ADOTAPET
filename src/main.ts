@@ -1,7 +1,7 @@
-import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { setupApp } from './setup-app';
+import { logJson } from './common/observability/json-logger';
 
 async function bootstrap(): Promise<void> {
   const port = Number(process.env.PORT ?? 3000);
@@ -9,16 +9,21 @@ async function bootstrap(): Promise<void> {
     throw new Error('PORT deve ser um número inteiro entre 1 e 65535');
   }
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { logger: false });
   setupApp(app);
   app.enableShutdownHooks();
   await app.listen(port);
 
-  Logger.log('Saúde da API em http://localhost:' + port + '/api/health', 'Bootstrap');
-  Logger.log('Swagger em http://localhost:' + port + '/docs', 'Bootstrap');
+  logJson('info', 'bootstrap.ready', {
+    port,
+    healthPath: '/api/health',
+    swaggerPath: '/docs',
+  });
 }
 
 bootstrap().catch((error: unknown) => {
-  Logger.error(error instanceof Error ? error.stack : String(error), undefined, 'Bootstrap');
+  logJson('error', 'bootstrap.failed', {
+    errorType: error instanceof Error ? error.name : typeof error,
+  });
   process.exitCode = 1;
 });

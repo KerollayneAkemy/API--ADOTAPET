@@ -21,6 +21,7 @@ export interface Animal {
   description: string;
   status: AnimalStatus;
   ongId: string;
+  photos: string[];
 }
 export interface Application {
   id: string;

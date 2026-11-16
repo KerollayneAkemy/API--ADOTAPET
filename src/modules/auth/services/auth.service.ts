@@ -4,66 +4,85 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { LoginDto } from '../dto/login.dto';
 import { RegisterDto } from '../dto/register.dto';
 import { PublicUser, User } from '../../../domain/entities';
 import { hashPassword, matchesPassword } from '../../../common/security/password';
-import { StoreService } from '../../../infrastructure/persistence/store.service';
-
-const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
+import { signAccessToken, verifyAccessToken } from '../../../common/security/jwt';
+import {
+  DatabaseService,
+  isUniqueViolation,
+} from '../../../infrastructure/persistence/database.service';
+import { IdempotencyService } from '../../../infrastructure/persistence/idempotency.service';
+import { logJson } from '../../../common/observability/json-logger';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly store: StoreService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly idempotency: IdempotencyService,
+  ) {}
 
-  register(data: RegisterDto): PublicUser {
+  async register(data: RegisterDto, idempotencyKey?: string): Promise<PublicUser> {
     const role = data.role ?? 'ADOTANTE';
-    if (role !== 'ONG' && role !== 'ADOTANTE') {
+    if (role !== 'ONG' && role !== 'ADOTANTE')
       throw new BadRequestException('Perfil não permitido no cadastro público');
-    }
-    const email = data.email.trim().toLowerCase();
-    if ([...this.store.users.values()].some((user) => user.email === email)) {
-      throw new ConflictException('E-mail já cadastrado');
-    }
     const user: User = {
       id: randomUUID(),
       name: data.name,
-      email,
+      email: data.email.trim().toLowerCase(),
       passwordHash: hashPassword(data.password),
       role,
     };
-    this.store.commit(() => this.store.users.set(user.id, user));
-    return this.toPublicUser(user);
+    const result = await this.idempotency.execute(
+      'public:POST:/auth/register',
+      idempotencyKey,
+      data,
+      async (client) => {
+        try {
+          await client.query(
+            'INSERT INTO users(id,name,email,password_hash,role) VALUES($1,$2,$3,$4,$5)',
+            [user.id, user.name, user.email, user.passwordHash, user.role],
+          );
+        } catch (error) {
+          if (isUniqueViolation(error)) throw new ConflictException('E-mail já cadastrado');
+          throw error;
+        }
+        return this.toPublicUser(user);
+      },
+    );
+    logJson('info', 'auth.registration', { userId: result.body.id, role: result.body.role });
+    return result.body;
   }
 
-  login(data: LoginDto): { accessToken: string; user: PublicUser } {
-    const email = data.email.trim().toLowerCase();
-    const user = [...this.store.users.values()].find((candidate) => candidate.email === email);
+  async login(data: LoginDto): Promise<{ accessToken: string; user: PublicUser }> {
+    const result = await this.database.query<User>(
+      'SELECT id,name,email,password_hash AS "passwordHash",role FROM users WHERE email=$1',
+      [data.email.trim().toLowerCase()],
+    );
+    const user = result.rows[0];
     if (!user || !matchesPassword(data.password, user.passwordHash)) {
+      logJson('warn', 'auth.login_failed', { reason: 'invalid_credentials' });
       throw new UnauthorizedException('E-mail ou senha inválidos');
     }
-    const now = Date.now();
-    for (const [token, session] of this.store.sessions) {
-      if (session.expiresAt <= now) this.store.sessions.delete(token);
-    }
-    const accessToken = randomBytes(32).toString('hex');
-    this.store.sessions.set(accessToken, { userId: user.id, expiresAt: now + SESSION_DURATION_MS });
-    return { accessToken, user: this.toPublicUser(user) };
+    logJson('info', 'auth.login_succeeded', { userId: user.id, role: user.role });
+    return { accessToken: signAccessToken(user.id, user.role), user: this.toPublicUser(user) };
   }
 
-  getUserFromToken(token: string): PublicUser {
-    const session = this.store.sessions.get(token);
-    if (!session || session.expiresAt <= Date.now()) {
-      this.store.sessions.delete(token);
-      throw new UnauthorizedException('Token inválido ou expirado');
-    }
-    const user = this.store.users.get(session.userId);
-    if (!user) throw new UnauthorizedException('Token inválido');
+  async getUserFromToken(token: string): Promise<PublicUser> {
+    const claims = verifyAccessToken(token);
+    if (!claims) throw new UnauthorizedException('Token inválido ou expirado');
+    const result = await this.database.query<User>(
+      'SELECT id,name,email,role FROM users WHERE id=$1',
+      [claims.sub],
+    );
+    const user = result.rows[0];
+    if (!user || user.role !== claims.role) throw new UnauthorizedException('Token inválido');
     return this.toPublicUser(user);
   }
 
-  private toPublicUser(user: User): PublicUser {
+  private toPublicUser(user: Pick<User, 'id' | 'name' | 'email' | 'role'>): PublicUser {
     return { id: user.id, name: user.name, email: user.email, role: user.role };
   }
 }

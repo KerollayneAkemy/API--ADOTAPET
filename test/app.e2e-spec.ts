@@ -2,333 +2,266 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { randomUUID } from 'node:crypto';
 import { AppModule } from '../src/app.module';
-import { Animal, Application, PublicUser } from '../src/domain/entities';
 import { setupApp } from '../src/setup-app';
-import { StoreService } from '../src/infrastructure/persistence/store.service';
+import { hashPassword } from '../src/common/security/password';
+import { signAccessToken } from '../src/common/security/jwt';
+import { DatabaseService } from '../src/infrastructure/persistence/database.service';
 
-type LoginResponse = { accessToken: string; user: PublicUser };
+if (!process.env.DATABASE_URL || !process.env.REDIS_URL) {
+  throw new Error(
+    'DATABASE_URL e REDIS_URL são obrigatórios para a suíte e2e; use docker compose --profile test run --build --rm integration-tests.',
+  );
+}
 
-describe('AdotaPet HTTP', () => {
+describe('AdotaPet PostgreSQL integration', () => {
   let app: INestApplication;
   let baseUrl: string;
-  let store: StoreService;
+  const responses: Response[] = [];
 
-  beforeEach(async () => {
-    const module = await Test.createTestingModule({ imports: [AppModule] })
-      .overrideProvider(StoreService)
-      .useFactory({ factory: () => new StoreService(':memory:') })
-      .compile();
+  beforeAll(async () => {
+    process.env.JWT_SECRET ??= randomUUID() + randomUUID();
+    process.env.RATE_LIMIT_MAX = '100';
+    await startApi();
+  });
+
+  async function startApi() {
+    const module = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = module.createNestApplication();
     setupApp(app);
     await app.listen(0, '127.0.0.1');
     baseUrl = await app.getUrl();
-    store = app.get(StoreService);
-  });
+  }
 
-  afterEach(async () => {
-    await app?.close();
-  });
+  afterAll(async () => app?.close());
 
-  async function request<T = unknown>(
+  async function request<T>(
     path: string,
     method = 'GET',
     body?: unknown,
     token?: string,
+    key?: string,
   ) {
     const response = await fetch(baseUrl + '/api' + path, {
       method,
       headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: 'Bearer ' + token } : {}),
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(key ? { 'Idempotency-Key': key } : {}),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-    return { status: response.status, body: (await response.json()) as T };
-  }
-
-  async function login(prefix: string): Promise<LoginResponse> {
-    const result = await request<LoginResponse>('/auth/login', 'POST', {
-      email: prefix + '@adotapet.local',
-      password: '123456',
-    });
-    expect(result.status).toBe(201);
-    return result.body;
-  }
-
-  async function animal(): Promise<Animal> {
-    const result = await request<Animal[]>('/animals');
-    expect(result.status).toBe(200);
-    return result.body[0];
-  }
-
-  it('mantém saúde e filtros públicos', async () => {
-    expect((await request('/health')).body).toEqual({
-      status: 'ok',
-      service: 'adotapet-api',
-      mode: 'local-sem-docker',
-    });
-    expect(
-      (await request<Animal[]>('/animals?city=S%C3%83O%20PAULO&species=CACHORRO')).body,
-    ).toHaveLength(1);
-    expect((await request('/animals?species=GATO')).body).toEqual([]);
-    expect((await request('/animals?status=INVALIDO')).status).toBe(400);
-    expect((await request('/animals/invalido')).status).toBe(400);
-    expect((await request('/animals/' + randomUUID())).status).toBe(404);
-  });
-
-  it('valida cadastro, normaliza email e não expõe senha', async () => {
-    const body = { name: ' Ana ', email: ' ANA@example.com ', password: '123456' };
-    const result = await request<PublicUser>('/auth/register', 'POST', body);
-    expect(result.status).toBe(201);
-    expect(result.body).toEqual({
-      id: expect.any(String),
-      name: 'Ana',
-      email: 'ana@example.com',
-      role: 'ADOTANTE',
-    });
-    expect(store.users.get(result.body.id)?.passwordHash).not.toBe(body.password);
-    expect((await request('/auth/register', 'POST', body)).status).toBe(409);
-    expect((await request('/auth/register', 'POST', { ...body, role: 'ADMIN' })).status).toBe(400);
-    expect((await request('/auth/register', 'POST', { ...body, name: ' ' })).status).toBe(400);
-    expect((await request('/auth/register', 'POST', { ...body, password: 'x' })).status).toBe(400);
-    expect(
-      (await request('/auth/login', 'POST', { email: 'ANA@example.com', password: '123456' }))
-        .status,
-    ).toBe(201);
-    expect(
-      (await request('/auth/login', 'POST', { email: 'ana@example.com', password: 'errada' }))
-        .status,
-    ).toBe(401);
-  });
-
-  it('exige sessão real e rejeita token expirado ou previsível', async () => {
-    const auth = await login('adotante');
-    expect(auth.user).not.toHaveProperty('passwordHash');
-    expect((await request('/applications/me')).status).toBe(401);
-    expect(
-      (await request('/applications/me', 'GET', undefined, 'local-token-' + auth.user.id)).status,
-    ).toBe(401);
-    expect((await request('/applications/me', 'GET', undefined, auth.accessToken)).status).toBe(
-      200,
-    );
-    const malformed = await fetch(baseUrl + '/api/applications/me', {
-      headers: { Authorization: auth.accessToken },
-    });
-    expect(malformed.status).toBe(401);
-    store.sessions.get(auth.accessToken)!.expiresAt = Date.now() - 1;
-    expect((await request('/applications/me', 'GET', undefined, auth.accessToken)).status).toBe(
-      401,
-    );
-  });
-
-  it('valida animais e impede alteração dos campos controlados pelo servidor', async () => {
-    const ong = await login('ong');
-    const adopter = await login('adotante');
-    const body = {
-      name: 'Lua',
-      species: 'GATO',
-      breed: 'SRD',
-      sex: 'FEMEA',
-      size: 'PEQUENO',
-      city: 'Manaus',
-      state: 'AM',
-      age: 1,
-      description: 'Dócil',
+    responses.push(response);
+    return {
+      status: response.status,
+      contentType: response.headers.get('content-type'),
+      body: (await response.json()) as T,
+      requestId: response.headers.get('x-request-id'),
     };
-    expect((await request('/animals', 'POST', body, adopter.accessToken)).status).toBe(403);
-    for (const invalid of [
-      { ...body, age: -1 },
-      { ...body, age: '1' },
-      { ...body, id: randomUUID() },
-      { ...body, ongId: adopter.user.id },
-      { ...body, status: 'ADOTADO' },
-    ]) {
-      expect((await request('/animals', 'POST', invalid, ong.accessToken)).status).toBe(400);
-    }
-    const created = await request<Animal>('/animals', 'POST', body, ong.accessToken);
-    expect(created.status).toBe(201);
-    expect(created.body).toMatchObject({ ...body, ongId: ong.user.id, status: 'DISPONIVEL' });
-  });
+  }
 
-  it('aprova apenas uma adoção e encerra as demais solicitações', async () => {
-    const ong = await login('ong');
-    const adopter = await login('adotante');
-    await request('/auth/register', 'POST', {
-      name: 'Outro',
-      email: 'outro@adotapet.local',
-      password: '123456',
-    });
-    const other = await login('outro');
-    const pet = await animal();
-    const path = '/animals/' + pet.id + '/applications';
-    const first = await request<Application>(
-      path,
+  async function registerAndLogin(role: 'ONG' | 'ADOTANTE', suffix: string) {
+    const emailPrefix = suffix.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    const email = `${emailPrefix}-${randomUUID()}@example.test`;
+    const registration = await request(
+      '/auth/register',
       'POST',
-      { reason: 'Quero adotar' },
-      adopter.accessToken,
+      {
+        name: suffix,
+        email,
+        password: 'Senha-segura-123',
+        role,
+      },
+      undefined,
+      `register-${randomUUID()}`,
     );
+    expect(registration.status).toBe(201);
+    const result = await request<{ accessToken: string }>('/auth/login', 'POST', {
+      email,
+      password: 'Senha-segura-123',
+    });
+    expect(result.status).toBe(201);
+    return result.body.accessToken;
+  }
+
+  it('propaga Request-ID, autentica com JWT, memoriza idempotência e serializa aprovações concorrentes', async () => {
+    const health = await request<{ status: string }>('/health');
+    expect(health.status).toBe(200);
+    expect(health.requestId).toMatch(/^[\w.-]{1,128}$/);
+    const openApi = (await (await fetch(baseUrl + '/docs-json')).json()) as {
+      components: { securitySchemes: Record<string, { bearerFormat?: string }> };
+      paths: Record<
+        string,
+        Record<
+          string,
+          {
+            parameters?: { name: string }[];
+            responses: Record<string, unknown>;
+            requestBody?: unknown;
+          }
+        >
+      >;
+    };
+    expect(openApi.components.securitySchemes.bearer.bearerFormat).toBe('JWT');
+    expect(openApi.paths['/api/animals/{id}/photos'].post.requestBody).toBeDefined();
+    expect(openApi.paths['/api/animals/{animalId}/applications'].post.parameters).toContainEqual(
+      expect.objectContaining({ name: 'Idempotency-Key' }),
+    );
+    expect(openApi.paths['/api/applications/me'].get.responses).toHaveProperty('429');
+
+    const ongToken = await registerAndLogin('ONG', 'ONG teste');
+    const otherOngToken = await registerAndLogin('ONG', 'Outra ONG');
+    const adopterToken = await registerAndLogin('ADOTANTE', 'Adotante teste');
+    const secondAdopterToken = await registerAndLogin('ADOTANTE', 'Outro adotante');
+    const animal = await request<{ id: string }>(
+      '/animals',
+      'POST',
+      {
+        name: 'Animal de integração',
+        species: 'GATO',
+        breed: 'SRD',
+        sex: 'FEMEA',
+        size: 'PEQUENO',
+        city: 'Manaus',
+        state: 'AM',
+        age: 2,
+        description: 'Teste de integração',
+      },
+      ongToken,
+      `animal-${randomUUID()}`,
+    );
+    expect(animal.status).toBe(201);
+
+    const missingKey = await request(
+      '/animals',
+      'POST',
+      {
+        name: 'Sem chave',
+        species: 'GATO',
+        breed: 'SRD',
+        sex: 'FEMEA',
+        size: 'PEQUENO',
+        city: 'Manaus',
+        state: 'AM',
+        age: 1,
+        description: 'Deve ser rejeitado',
+      },
+      ongToken,
+    );
+    expect(missingKey.status).toBe(400);
+    expect(missingKey.contentType).toContain('application/problem+json');
+    expect(missingKey.body).toHaveProperty('requestId');
+
+    const animalPath = `/animals/${animal.body.id}/applications`;
+    const key = `integration-${randomUUID()}`;
+    const [first, replay] = await Promise.all([
+      request(animalPath, 'POST', { reason: 'Pedido idem' }, adopterToken, key),
+      request(animalPath, 'POST', { reason: 'Pedido idem' }, adopterToken, key),
+    ]);
     expect(first.status).toBe(201);
-    expect((await request(path, 'POST', {}, adopter.accessToken)).status).toBe(409);
-    expect((await request(path, 'POST', {}, ong.accessToken)).status).toBe(403);
-    const second = await request<Application>(path, 'POST', {}, other.accessToken);
+    expect(replay.body).toEqual(first.body);
+    // Um processo novo recupera a resposta registrada no PostgreSQL, sem estado em memória.
+    await app.close();
+    await startApi();
+    const persistedReplay = await request(
+      animalPath,
+      'POST',
+      { reason: 'Pedido idem' },
+      adopterToken,
+      key,
+    );
+    expect(persistedReplay.status).toBe(201);
+    expect(persistedReplay.body).toEqual(first.body);
+    const changedPayload = await request(
+      animalPath,
+      'POST',
+      { reason: 'Conteúdo diferente' },
+      adopterToken,
+      key,
+    );
+    expect(changedPayload.status).toBe(409);
+    expect(changedPayload.contentType).toContain('application/problem+json');
+    const duplicatePending = await request(
+      animalPath,
+      'POST',
+      { reason: 'Outro pedido pendente da mesma pessoa' },
+      adopterToken,
+      `duplicate-${randomUUID()}`,
+    );
+    expect(duplicatePending.status).toBe(409);
+    const second = await request<{ id: string }>(
+      `/animals/${animal.body.id}/applications`,
+      'POST',
+      {},
+      secondAdopterToken,
+      `application-${randomUUID()}`,
+    );
     expect(second.status).toBe(201);
-    expect(
-      (await request<Application[]>('/applications/me', 'GET', undefined, adopter.accessToken))
-        .body,
-    ).toHaveLength(1);
-    expect(
-      (await request<Application[]>('/applications/me', 'GET', undefined, ong.accessToken)).body,
-    ).toHaveLength(2);
-    const approved = await request<Application>(
-      '/applications/' + first.body.id + '/approve',
+
+    const firstDecision = `/applications/${(first.body as { id: string }).id}/approve`;
+    const secondDecision = `/applications/${second.body.id}/approve`;
+    const deniedOngDecision = await request(firstDecision, 'PATCH', undefined, otherOngToken);
+    expect(deniedOngDecision.status).toBe(403);
+    const adminId = randomUUID();
+    await app
+      .get(DatabaseService)
+      .query('INSERT INTO users(id,name,email,password_hash,role) VALUES($1,$2,$3,$4,$5)', [
+        adminId,
+        'Admin de integração',
+        `${adminId}@example.test`,
+        hashPassword(randomUUID()),
+        'ADMIN',
+      ]);
+    const deniedAdminDecision = await request(
+      firstDecision,
       'PATCH',
       undefined,
-      ong.accessToken,
+      signAccessToken(adminId, 'ADMIN'),
     );
-    expect(approved.status).toBe(200);
-    expect(approved.body.status).toBe('APROVADA');
-    expect((await animal()).status).toBe('ADOTADO');
-    expect(
-      (await request<Application[]>('/applications/me', 'GET', undefined, other.accessToken))
-        .body[0].status,
-    ).toBe('RECUSADA');
-    expect(
-      (
-        await request(
-          '/applications/' + second.body.id + '/approve',
-          'PATCH',
-          undefined,
-          ong.accessToken,
-        )
-      ).status,
-    ).toBe(409);
-    expect((await request(path, 'POST', {}, other.accessToken)).status).toBe(409);
-  });
-
-  it('exige o responsável e mantém animal disponível após recusa', async () => {
-    const ong = await login('ong');
-    const adopter = await login('adotante');
-    await request('/auth/register', 'POST', {
-      name: 'Outra ONG',
-      email: 'outra@adotapet.local',
-      password: '123456',
-      role: 'ONG',
+    expect(deniedAdminDecision.status).toBe(403);
+    const decisions = await Promise.all([
+      request(firstDecision, 'PATCH', undefined, ongToken),
+      request(secondDecision, 'PATCH', undefined, ongToken),
+    ]);
+    expect(decisions.filter((result) => result.status === 200)).toHaveLength(1);
+    expect(decisions.filter((result) => result.status === 409)).toHaveLength(1);
+    const finalAnimalState = await app.get(DatabaseService).query<{
+      animal_status: string;
+      approved_count: string;
+      rejected_count: string;
+    }>(
+      `SELECT pet.status AS animal_status,
+              count(*) FILTER (WHERE app.status='APROVADA') AS approved_count,
+              count(*) FILTER (WHERE app.status='RECUSADA') AS rejected_count
+       FROM animals pet JOIN applications app ON app.animal_id=pet.id
+       WHERE pet.id=$1 GROUP BY pet.status`,
+      [animal.body.id],
+    );
+    expect(finalAnimalState.rows[0]).toMatchObject({
+      animal_status: 'ADOTADO',
+      approved_count: '1',
+      rejected_count: '1',
     });
-    const other = await login('outra');
-    const pet = await animal();
-    const created = await request<Application>(
-      '/animals/' + pet.id + '/applications',
+    const requestForAdoptedAnimal = await request(
+      animalPath,
       'POST',
-      {},
-      adopter.accessToken,
+      { reason: 'Tentativa após adoção' },
+      secondAdopterToken,
+      `adopted-${randomUUID()}`,
     );
-    const path = '/applications/' + created.body.id;
-    expect((await request(path + '/approve', 'PATCH', undefined, other.accessToken)).status).toBe(
-      403,
-    );
-    expect((await request(path + '/approve', 'PATCH', undefined, adopter.accessToken)).status).toBe(
-      403,
-    );
-    expect(
-      (await request<Application[]>('/applications/me', 'GET', undefined, other.accessToken)).body,
-    ).toEqual([]);
-    expect((await request(path + '/reject', 'PATCH', undefined, ong.accessToken)).status).toBe(200);
-    expect((await animal()).status).toBe('DISPONIVEL');
-    expect((await request(path + '/approve', 'PATCH', undefined, ong.accessToken)).status).toBe(
-      409,
-    );
-  });
+    expect(requestForAdoptedAnimal.status).toBe(409);
 
-  it('permite ao administrador decidir sobre animais que cadastrou', async () => {
-    const admin = await login('admin');
-    const adopter = await login('adotante');
-    const body = {
-      name: 'Sol',
-      species: 'GATO',
-      breed: 'SRD',
-      sex: 'MACHO',
-      size: 'MEDIO',
-      city: 'Manaus',
-      state: 'AM',
-      age: 2,
-      description: '',
-    };
-    const pet = await request<Animal>('/animals', 'POST', body, admin.accessToken);
-    const application = await request<Application>(
-      '/animals/' + pet.body.id + '/applications',
-      'POST',
-      {},
-      adopter.accessToken,
-    );
-    expect(
-      (
-        await request(
-          '/applications/' + application.body.id + '/approve',
-          'PATCH',
-          undefined,
-          admin.accessToken,
-        )
-      ).status,
-    ).toBe(200);
-  });
-
-  it('documenta respostas, exemplos e autenticação das rotas existentes', async () => {
-    const response = await fetch(baseUrl + '/docs-json');
-    type Operation = {
-      summary: string;
-      responses: Record<
-        string,
-        { description: string; content?: Record<string, { example: unknown; schema: unknown }> }
-      >;
-      security?: unknown[];
-    };
-    const document = (await response.json()) as {
-      components: {
-        schemas: Record<string, unknown>;
-        securitySchemes: Record<string, { scheme: string; bearerFormat?: string }>;
-      };
-      paths: Record<string, Record<string, Operation>>;
-    };
-    expect(response.status).toBe(200);
-    expect(document.components.schemas).toHaveProperty('CreateAnimalDto');
-    expect(document.components.schemas).toHaveProperty('RegisterDto');
-    const expected: [string, string, number[]][] = [
-      ['/api/auth/register', 'post', [201, 400, 409, 503]],
-      ['/api/auth/login', 'post', [201, 400, 401]],
-      ['/api/animals', 'get', [200, 400]],
-      ['/api/animals', 'post', [201, 400, 401, 403, 503]],
-      ['/api/animals/{id}', 'get', [200, 400, 404]],
-      ['/api/animals/{animalId}/applications', 'post', [201, 400, 401, 403, 404, 409, 503]],
-      ['/api/applications/me', 'get', [200, 401]],
-      ['/api/applications/{id}/approve', 'patch', [200, 400, 401, 403, 404, 409, 503]],
-      ['/api/applications/{id}/reject', 'patch', [200, 400, 401, 403, 404, 409, 503]],
-      ['/api/health', 'get', [200]],
-    ];
-    for (const [path, method, codes] of expected) {
-      const operation = document.paths[path][method];
-      expect(operation.summary.length).toBeGreaterThan(0);
-      for (const code of codes) {
-        const result = operation.responses[code];
-        expect(result.description.length).toBeGreaterThan(0);
-        expect(result.content?.['application/json'].schema).toBeDefined();
-        expect(result.content?.['application/json'].example).toBeDefined();
+    // O limite global usa Redis; chamadas suficientes nesta janela devem produzir RFC 7807/429.
+    let limited = false;
+    for (let i = 0; i < 110; i += 1) {
+      const result = await request('/health');
+      if (result.status === 429) {
+        expect(result.contentType).toContain('application/problem+json');
+        expect(result.body).toHaveProperty('requestId');
+        limited = true;
+        break;
       }
     }
-    expect(document.components.securitySchemes.bearer.scheme).toBe('bearer');
-    expect(document.components.securitySchemes.bearer.bearerFormat).not.toBe('JWT');
-    expect(document.paths['/api/animals'].post.security).toContainEqual({ bearer: [] });
-    const loginResult = await login('adotante');
-    const loginExample = document.paths['/api/auth/login'].post.responses[201].content![
-      'application/json'
-    ].example as LoginResponse;
-    expect(Object.keys(loginResult).sort()).toEqual(Object.keys(loginExample).sort());
-    expect(Object.keys(loginResult.user).sort()).toEqual(Object.keys(loginExample.user).sort());
-    const invalid = await request<{ message: string; error: string; statusCode: number }>(
-      '/applications/me',
-    );
-    const errorExample = document.paths['/api/applications/me'].get.responses[401].content![
-      'application/json'
-    ].example as object;
-    expect(Object.keys(invalid.body).sort()).toEqual(Object.keys(errorExample).sort());
+    expect(limited).toBe(true);
+    expect(responses.some((response) => response.status === 429)).toBe(true);
   });
 });

@@ -1,5 +1,9 @@
 import { Module } from '@nestjs/common';
-import { StoreService } from './store.service';
+import { DatabaseService } from './database.service';
+import { IdempotencyService } from './idempotency.service';
 
-@Module({ providers: [StoreService], exports: [StoreService] })
+@Module({
+  providers: [DatabaseService, IdempotencyService],
+  exports: [DatabaseService, IdempotencyService],
+})
 export class PersistenceModule {}

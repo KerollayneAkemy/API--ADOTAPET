@@ -7,13 +7,14 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags, ApiParam } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiParam, ApiHeader } from '@nestjs/swagger';
 import { ApplicationsService } from '../services/applications.service';
 import { AuthGuard, CurrentUser } from '../../auth/guards/auth.guard';
 import { PublicUser } from '../../../domain/entities';
@@ -48,12 +49,18 @@ export class ApplicationsController {
     },
   )
   @Post('animals/:animalId/applications')
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    description: 'Chave única obrigatória para repetir a criação sem duplicar a solicitação.',
+  })
   create(
     @CurrentUser() user: PublicUser,
     @Param('animalId', ParseUUIDPipe) animalId: string,
     @Body() body: CreateApplicationDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.applications.create(user, animalId, body);
+    return this.applications.create(user, animalId, body, idempotencyKey);
   }
 
   @ApiEndpoint(

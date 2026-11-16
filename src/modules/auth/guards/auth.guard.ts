@@ -15,11 +15,11 @@ type AuthenticatedRequest = Request & { user?: PublicUser };
 export class AuthGuard implements CanActivate {
   constructor(private readonly auth: AuthService) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const match = /^Bearer\s+(\S+)$/i.exec(request.headers.authorization ?? '');
     if (!match) throw new UnauthorizedException('Informe Authorization: Bearer <token>');
-    request.user = this.auth.getUserFromToken(match[1]);
+    request.user = await this.auth.getUserFromToken(match[1]);
     return true;
   }
 }
