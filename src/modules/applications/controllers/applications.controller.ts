@@ -52,13 +52,15 @@ export class ApplicationsController {
   @ApiHeader({
     name: 'Idempotency-Key',
     required: true,
-    description: 'Chave única obrigatória para repetir a criação sem duplicar a solicitação.',
+    description:
+      'Chave única obrigatória, com 8 a 128 caracteres, para repetir a criação sem duplicar a solicitação.',
+    schema: { type: 'string', minLength: 8, maxLength: 128 },
   })
   create(
     @CurrentUser() user: PublicUser,
     @Param('animalId', ParseUUIDPipe) animalId: string,
     @Body() body: CreateApplicationDto,
-    @Headers('idempotency-key') idempotencyKey?: string,
+    @Headers('Idempotency-Key') idempotencyKey?: string,
   ) {
     return this.applications.create(user, animalId, body, idempotencyKey);
   }

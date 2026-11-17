@@ -48,10 +48,11 @@ export class AuthController {
   @ApiHeader({
     name: 'Idempotency-Key',
     required: true,
-    description: 'Chave única para repetir este cadastro sem duplicá-lo.',
+    description: 'Chave única com 8 a 128 caracteres para repetir este cadastro sem duplicá-lo.',
+    schema: { type: 'string', minLength: 8, maxLength: 128 },
   })
   @Post('register')
-  register(@Body() body: RegisterDto, @Headers('idempotency-key') idempotencyKey?: string) {
+  register(@Body() body: RegisterDto, @Headers('Idempotency-Key') idempotencyKey?: string) {
     return this.auth.register(body, idempotencyKey);
   }
 

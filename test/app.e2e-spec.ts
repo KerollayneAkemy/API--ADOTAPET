@@ -62,19 +62,30 @@ describe('AdotaPet PostgreSQL integration', () => {
   async function registerAndLogin(role: 'ONG' | 'ADOTANTE', suffix: string) {
     const emailPrefix = suffix.toLowerCase().replace(/[^a-z0-9-]/g, '-');
     const email = `${emailPrefix}-${randomUUID()}@example.test`;
+    const registrationBody = {
+      name: suffix,
+      email,
+      password: 'Senha-segura-123',
+      role,
+    };
+    const registrationKey = `register-${randomUUID()}`;
     const registration = await request(
       '/auth/register',
       'POST',
-      {
-        name: suffix,
-        email,
-        password: 'Senha-segura-123',
-        role,
-      },
+      registrationBody,
       undefined,
-      `register-${randomUUID()}`,
+      registrationKey,
     );
     expect(registration.status).toBe(201);
+    const registrationReplay = await request(
+      '/auth/register',
+      'POST',
+      registrationBody,
+      undefined,
+      registrationKey,
+    );
+    expect(registrationReplay.status).toBe(201);
+    expect(registrationReplay.body).toEqual(registration.body);
     const result = await request<{ accessToken: string }>('/auth/login', 'POST', {
       email,
       password: 'Senha-segura-123',
@@ -94,7 +105,12 @@ describe('AdotaPet PostgreSQL integration', () => {
         Record<
           string,
           {
-            parameters?: { name: string }[];
+            parameters?: {
+              name: string;
+              in?: string;
+              required?: boolean;
+              schema?: { type?: string; minLength?: number; maxLength?: number };
+            }[];
             responses: Record<string, unknown>;
             requestBody?: unknown;
           }
@@ -102,6 +118,24 @@ describe('AdotaPet PostgreSQL integration', () => {
       >;
     };
     expect(openApi.components.securitySchemes.bearer.bearerFormat).toBe('JWT');
+    for (const [path, method] of [
+      ['/api/auth/register', 'post'],
+      ['/api/animals', 'post'],
+      ['/api/animals/{id}/photos', 'post'],
+      ['/api/animals/{animalId}/applications', 'post'],
+    ] as const) {
+      const parameters = openApi.paths[path][method].parameters ?? [];
+      const idempotencyHeaders = parameters.filter(
+        (parameter) =>
+          parameter.in === 'header' && parameter.name.toLowerCase() === 'idempotency-key',
+      );
+      expect(idempotencyHeaders).toHaveLength(1);
+      expect(idempotencyHeaders[0]).toMatchObject({
+        name: 'Idempotency-Key',
+        required: true,
+        schema: { type: 'string', minLength: 8, maxLength: 128 },
+      });
+    }
     expect(openApi.paths['/api/animals/{id}/photos'].post.requestBody).toBeDefined();
     expect(openApi.paths['/api/animals/{animalId}/applications'].post.parameters).toContainEqual(
       expect.objectContaining({ name: 'Idempotency-Key' }),

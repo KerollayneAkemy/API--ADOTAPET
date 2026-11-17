@@ -87,14 +87,15 @@ export class AnimalsController {
   @ApiHeader({
     name: 'Idempotency-Key',
     required: true,
-    description: 'Chave única para repetir a criação do animal sem duplicá-lo.',
+    description: 'Chave única com 8 a 128 caracteres para repetir a criação sem duplicá-la.',
+    schema: { type: 'string', minLength: 8, maxLength: 128 },
   })
   @ApiBearerAuth()
   @UseGuards(AuthGuard)
   create(
     @CurrentUser() user: PublicUser,
     @Body() body: CreateAnimalDto,
-    @Headers('idempotency-key') idempotencyKey?: string,
+    @Headers('Idempotency-Key') idempotencyKey?: string,
   ) {
     return this.animals.create(user, body, idempotencyKey);
   }
@@ -129,7 +130,8 @@ export class AnimalsController {
   @ApiHeader({
     name: 'Idempotency-Key',
     required: true,
-    description: 'Chave única para evitar upload duplicado ao repetir a requisição.',
+    description: 'Chave única com 8 a 128 caracteres para evitar upload duplicado.',
+    schema: { type: 'string', minLength: 8, maxLength: 128 },
   })
   @ApiBody({
     schema: {
@@ -157,7 +159,7 @@ export class AnimalsController {
     @CurrentUser() user: PublicUser,
     @Param('id', ParseUUIDPipe) id: string,
     @UploadedFile() file: Express.Multer.File,
-    @Headers('idempotency-key') idempotencyKey?: string,
+    @Headers('Idempotency-Key') idempotencyKey?: string,
   ) {
     if (!file) throw new BadRequestException('Arquivo de imagem obrigatório.');
     return this.animals.uploadPhoto(user, id, file, idempotencyKey);
