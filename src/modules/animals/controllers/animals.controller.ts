@@ -10,7 +10,7 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
-  Redirect,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -31,6 +31,7 @@ import { AuthGuard, CurrentUser } from '../../auth/guards/auth.guard';
 import { PublicUser } from '../../../domain/entities';
 import { CreateAnimalDto } from '../dto/create-animal.dto';
 import { ListAnimalsDto } from '../dto/list-animals.dto';
+import type { Response } from 'express';
 
 // Expõe as rotas HTTP de animais e delega as regras ao serviço do módulo.
 @ApiTags('Animais')
@@ -168,12 +169,47 @@ export class AnimalsController {
   @Get(':id/photos/:photoId')
   @ApiParam({ name: 'id', format: 'uuid', description: 'UUID do animal.' })
   @ApiResponse({
+    status: 200,
+    description: 'Prévia HTML responsiva quando aberta diretamente no navegador.',
+    content: { 'text/html': { schema: { type: 'string' } } },
+  })
+  @ApiResponse({
     status: 302,
-    description: 'Redireciona para URL assinada temporária de objeto no R2 privado.',
+    description: 'Redireciona clientes de API para URL assinada temporária do R2 privado.',
   })
   @ApiResponse({ status: 404, description: 'Foto não vinculada ao animal.' })
-  @Redirect()
-  async getPhoto(@Param('id', ParseUUIDPipe) id: string, @Param('photoId') photoId: string) {
-    return { url: await this.animals.getPhotoReadUrl(id, photoId), statusCode: 302 };
+  async getPhoto(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('photoId') photoId: string,
+    @Headers('accept') accept: string | undefined,
+    @Res() response: Response,
+  ): Promise<void> {
+    const signedUrl = await this.animals.getPhotoReadUrl(id, photoId);
+    response.setHeader('Cache-Control', 'no-store');
+    response.setHeader('Vary', 'Accept');
+
+    if (accept?.toLowerCase().includes('text/html')) {
+      const safeImageUrl = signedUrl.replace(/[&<>"']/g, (character) => {
+        const escaped: Record<string, string> = {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+        };
+        return escaped[character];
+      });
+      response
+        .status(200)
+        .type('html')
+        .send(
+          '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Foto do animal</title><style>html,body{margin:0;min-height:100%;font-family:system-ui,sans-serif;background:#f4f4f5;color:#27272a}body{display:grid;place-items:center;min-height:100vh;padding:16px;box-sizing:border-box}img{display:block;max-width:min(720px,92vw);max-height:82vh;width:auto;height:auto;object-fit:contain;border-radius:12px;box-shadow:0 8px 28px #0002}</style><img alt="Foto do animal" src="' +
+            safeImageUrl +
+            '"></html>',
+        );
+      return;
+    }
+
+    response.redirect(302, signedUrl);
   }
 }

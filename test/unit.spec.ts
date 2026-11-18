@@ -1,4 +1,6 @@
 import { signAccessToken, verifyAccessToken } from '../src/common/security/jwt';
+import { HealthController } from '../src/modules/health/controllers/health.controller';
+import { AnimalsController } from '../src/modules/animals/controllers/animals.controller';
 import { ApplicationsService } from '../src/modules/applications/services/applications.service';
 import { DatabaseService } from '../src/infrastructure/persistence/database.service';
 import { IdempotencyService } from '../src/infrastructure/persistence/idempotency.service';
@@ -6,6 +8,7 @@ import { RedisRateLimitService } from '../src/infrastructure/rate-limit/redis-ra
 import { Application, PublicUser } from '../src/domain/entities';
 import { R2StorageService } from '../src/infrastructure/storage/r2-storage.service';
 import { AnimalsService } from '../src/modules/animals/services/animals.service';
+import type { Response } from 'express';
 import { S3Client } from '@aws-sdk/client-s3';
 import { createHmac } from 'node:crypto';
 
@@ -51,6 +54,65 @@ describe('JWT de acesso', () => {
       .update(unsigned)
       .digest('base64url');
     expect(verifyAccessToken(`${unsigned}.${validSignature}`)).toBeNull();
+  });
+});
+
+describe('Resposta de saúde da API', () => {
+  it('inclui horário UTC da resposta e não expõe modo de execução', () => {
+    const response = new HealthController().health();
+    expect(response).toMatchObject({ status: 'ok', service: 'adotapet-api' });
+    expect(response.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    expect(response).not.toHaveProperty('mode');
+  });
+});
+
+describe('Prévia responsiva de foto', () => {
+  const animalId = '00000000-0000-4000-8000-000000000002';
+  const photoId = '123e4567-e89b-42d3-a456-426614174000.jpg';
+  const signedUrl = 'https://private.example/photo.jpg?signature=abc&expires=900';
+
+  const createResponse = () => {
+    const response = {
+      setHeader: jest.fn(),
+      status: jest.fn(),
+      type: jest.fn(),
+      send: jest.fn(),
+      redirect: jest.fn(),
+    };
+    response.status.mockReturnValue(response);
+    response.type.mockReturnValue(response);
+    return response;
+  };
+
+  it('mostra a imagem limitada à janela ao abrir no navegador', async () => {
+    const service = { getPhotoReadUrl: jest.fn().mockResolvedValue(signedUrl) };
+    const controller = new AnimalsController(service as unknown as AnimalsService);
+    const response = createResponse();
+
+    await controller.getPhoto(
+      animalId,
+      photoId,
+      'text/html,application/xhtml+xml',
+      response as unknown as Response,
+    );
+
+    expect(response.status).toHaveBeenCalledWith(200);
+    expect(response.type).toHaveBeenCalledWith('html');
+    expect(response.send.mock.calls[0][0]).toContain('max-width:min(720px,92vw)');
+    expect(response.send.mock.calls[0][0]).toContain('expires=900');
+    expect(response.send.mock.calls[0][0]).toContain('&amp;');
+    expect(response.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
+  });
+
+  it('mantém redirecionamento para clientes de API', async () => {
+    const service = { getPhotoReadUrl: jest.fn().mockResolvedValue(signedUrl) };
+    const controller = new AnimalsController(service as unknown as AnimalsService);
+    const response = createResponse();
+
+    await controller.getPhoto(animalId, photoId, '*/*', response as unknown as Response);
+
+    expect(response.redirect).toHaveBeenCalledWith(302, signedUrl);
+    expect(response.send).not.toHaveBeenCalled();
   });
 });
 
