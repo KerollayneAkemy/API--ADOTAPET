@@ -11,17 +11,16 @@ export class HealthController {
     200,
     {
       type: 'object',
-      required: ['status', 'service', 'mode'],
+      required: ['status', 'service'],
       properties: {
         status: { type: 'string' },
         service: { type: 'string' },
-        mode: { type: 'string' },
       },
     },
-    { status: 'ok', service: 'adotapet-api', mode: 'local-sem-docker' },
+    { status: 'ok', service: 'adotapet-api' },
   )
   @Get()
   health() {
-    return { status: 'ok', service: 'adotapet-api', mode: 'local-sem-docker' };
+    return { status: 'ok', service: 'adotapet-api' };
   }
 }
