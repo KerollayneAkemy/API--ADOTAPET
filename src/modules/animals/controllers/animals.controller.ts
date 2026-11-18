@@ -203,7 +203,7 @@ export class AnimalsController {
         .status(200)
         .type('html')
         .send(
-          '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Foto do animal</title><style>html,body{margin:0;min-height:100%;font-family:system-ui,sans-serif;background:#f4f4f5;color:#27272a}body{display:grid;place-items:center;min-height:100vh;padding:16px;box-sizing:border-box}img{display:block;max-width:min(720px,92vw);max-height:82vh;width:auto;height:auto;object-fit:contain;border-radius:12px;box-shadow:0 8px 28px #0002}</style><img alt="Foto do animal" src="' +
+          '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Foto do animal</title><style>html,body{margin:0;min-height:100%;font-family:system-ui,sans-serif;background:#f4f4f5;color:#27272a}body{display:grid;place-items:center;min-height:100vh;padding:16px;box-sizing:border-box}img{display:block;width:min(360px,84vw,72vh);height:min(360px,84vw,72vh);object-fit:contain;background:#fff;border-radius:12px;box-shadow:0 8px 28px #0002}</style><img alt="Foto do animal" src="' +
             safeImageUrl +
             '"></html>',
         );

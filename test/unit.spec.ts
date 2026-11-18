@@ -98,7 +98,8 @@ describe('Prévia responsiva de foto', () => {
 
     expect(response.status).toHaveBeenCalledWith(200);
     expect(response.type).toHaveBeenCalledWith('html');
-    expect(response.send.mock.calls[0][0]).toContain('max-width:min(720px,92vw)');
+    expect(response.send.mock.calls[0][0]).toContain('width:min(360px,84vw,72vh)');
+    expect(response.send.mock.calls[0][0]).toContain('height:min(360px,84vw,72vh)');
     expect(response.send.mock.calls[0][0]).toContain('expires=900');
     expect(response.send.mock.calls[0][0]).toContain('&amp;');
     expect(response.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
