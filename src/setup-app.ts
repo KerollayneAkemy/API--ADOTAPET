@@ -35,6 +35,8 @@ const swaggerPhotoPreviewScript = `(() => {
       image.style.cssText = 'display:block;width:min(360px,84vw,72vh);height:min(360px,84vw,72vh);object-fit:contain;background:white;border-radius:10px';
       preview.appendChild(image);
       responseBody.insertAdjacentElement('afterend', preview);
+      // O HTML só serve para transportar a URL assinada; a miniatura é a resposta visual.
+      responseBody.style.display = 'none';
     }
   };
 
