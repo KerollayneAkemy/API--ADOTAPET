@@ -19,6 +19,7 @@ export class AnimalsService {
   async list(filters: ListAnimalsDto): Promise<Animal[]> {
     const clauses: string[] = [];
     const values: unknown[] = [];
+    // Os valores vão como parâmetros SQL; apenas nomes de colunas fixos são montados na consulta.
     const add = (column: string, value: unknown) => {
       values.push(value);
       clauses.push(`${column} = $${values.length}`);
@@ -150,6 +151,7 @@ export class AnimalsService {
   private toPublicAnimal(animal: Animal): Animal {
     return {
       ...animal,
+      // No banco ficam só os IDs; a API os converte em rotas acessíveis para cada foto.
       photos: (animal.photos ?? []).map((photoId) => `/api/animals/${animal.id}/photos/${photoId}`),
     };
   }

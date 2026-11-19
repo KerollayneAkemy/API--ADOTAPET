@@ -48,6 +48,7 @@ export function verifyAccessToken(token: string): AccessTokenClaims | null {
       .update(headerPart + '.' + payloadPart)
       .digest();
     const actual = Buffer.from(signature, 'base64url');
+    // Primeiro valida a assinatura em tempo constante; depois confere validade e identidade do emissor.
     if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
     const claims = JSON.parse(
       Buffer.from(payloadPart, 'base64url').toString('utf8'),

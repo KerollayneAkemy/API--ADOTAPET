@@ -131,6 +131,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private async runMigrations(): Promise<void> {
     const client = await this.pool.connect();
     try {
+      // Uma trava global impede duas réplicas de aplicar a mesma migração ao iniciar juntas.
       await client.query('SELECT pg_advisory_lock(741920261)');
       await client.query(
         'CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())',

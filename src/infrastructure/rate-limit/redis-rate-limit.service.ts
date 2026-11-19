@@ -46,6 +46,7 @@ export class RedisRateLimitService implements OnModuleInit, OnModuleDestroy {
     if (this.redis) {
       let count: number;
       try {
+        // Incremento e expiração rodam juntos no Redis; todas as instâncias compartilham a mesma janela.
         count = (await this.redis.eval(
           "local n=redis.call('INCR',KEYS[1]); if n==1 then redis.call('PEXPIRE',KEYS[1],ARGV[1]); end; return n",
           1,

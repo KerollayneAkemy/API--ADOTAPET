@@ -11,6 +11,7 @@ export interface IdempotentResult<T> {
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
   if (value && typeof value === 'object') {
+    // Ordenar as chaves faz corpos equivalentes gerarem o mesmo hash, mesmo em ordens diferentes.
     return `{${Object.entries(value)
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`)
@@ -38,6 +39,7 @@ export class IdempotencyService {
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
         `${scopeKey}:${idempotencyKey}`,
       ]);
+      // Registros antigos expiram após 24 horas para limitar o crescimento da tabela.
       await client.query(
         "DELETE FROM idempotency_keys WHERE created_at < now() - interval '24 hours'",
       );

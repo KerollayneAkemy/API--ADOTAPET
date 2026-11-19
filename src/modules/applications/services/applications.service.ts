@@ -47,6 +47,7 @@ export class ApplicationsService {
     data: CreateApplicationDto,
     client: PoolClient,
   ): Promise<Application> {
+    // Serializa pedidos do mesmo animal com aprovações, impedindo solicitações após adoção.
     const animalResult = await client.query<{ status: string }>(
       'SELECT status FROM animals WHERE id=$1 FOR UPDATE',
       [animalId],
@@ -112,6 +113,7 @@ export class ApplicationsService {
       await client.query('UPDATE applications SET status=$1 WHERE id=$2', [application.status, id]);
       if (approve) {
         await client.query("UPDATE animals SET status='ADOTADO' WHERE id=$1", [animal.id]);
+        // Uma adoção aceita encerra os demais pedidos ainda pendentes para esse animal.
         await client.query(
           "UPDATE applications SET status='RECUSADA' WHERE animal_id=$1 AND id<>$2 AND status='PENDENTE'",
           [animal.id, id],

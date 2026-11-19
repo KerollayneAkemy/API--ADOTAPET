@@ -68,6 +68,7 @@ export class R2StorageService {
     if (!/^[0-9a-f-]{36}\.(jpg|png|webp)$/.test(photoId))
       throw new BadRequestException('Identificador de foto inválido.');
     try {
+      // O bucket fica privado; esta URL concede leitura somente deste objeto e expira em 15 minutos.
       return await getSignedUrl(
         this.client,
         new GetObjectCommand({ Bucket: this.bucket, Key: `animals/${animalId}/${photoId}` }),
