@@ -1,0 +1,17 @@
+sequenceDiagram
+  actor responsavel as ONG ou ADMIN responsável
+  participant api as API AdotaPet
+  participant db as PostgreSQL
+  responsavel->>api: PATCH /api/applications/{id}/approve + JWT
+  api->>db: BEGIN
+  api->>db: Busca solicitação e identifica animal
+  api->>db: SELECT animal FOR UPDATE
+  Note over api,db: A trava serializa decisões concorrentes para o mesmo animal.
+  api->>db: SELECT solicitação FOR UPDATE
+  api->>api: Confere responsável e status PENDENTE
+  api->>db: Marca solicitação como APROVADA
+  api->>db: Marca animal como ADOTADO
+  api->>db: Recusa os demais pedidos PENDENTE
+  api->>db: COMMIT
+  api-->>responsavel: 200 · solicitação aprovada
+  Note over api,db: Se uma validação ou gravação falhar, a transação sofre ROLLBACK.

@@ -1,23 +1,35 @@
 flowchart TB
-  client[Cliente HTTP]
-  subgraph app[Monólito modular NestJS]
-    controllers[Controllers + DTOs]
-    services[Serviços de aplicação]
-    observability[Request context + Problem Details + JSON logger]
-    persistence[DatabaseService + migrações]
-    limiter[RateLimitGuard]
-    storage[R2StorageService]
-    controllers --> services
-    services --> persistence
+  cliente["Cliente HTTP"] --> controllers
+
+  subgraph api["AdotaPet API · NestJS"]
+    controllers["Controllers + DTOs<br/>Auth · Animals · Applications · Health"]
+    auth["AuthService + AuthGuard<br/>Cadastro · login · JWT · usuário atual"]
+    animals["AnimalsService<br/>Cadastro · filtros · fotos · autorização"]
+    applications["ApplicationsService<br/>Solicitações · decisão transacional"]
+    idempotency["IdempotencyService<br/>Chave · hash do pedido · resposta durável"]
+    database["DatabaseService<br/>Pool · transações · migrações"]
+    ratelimit["RateLimitGuard + RedisRateLimitService<br/>Limite global por cliente"]
+    storage["R2StorageService<br/>Validação · upload · URL assinada"]
+    observability["Observabilidade<br/>Request-ID · logs JSON · Problem Details"]
+
+    controllers --> auth
+    controllers --> animals
+    controllers --> applications
+    controllers --> ratelimit
     controllers --> observability
-    services --> observability
-    services --> storage
-    controllers --> limiter
+    auth --> database
+    auth --> idempotency
+    animals --> database
+    animals --> idempotency
+    animals --> storage
+    applications --> database
+    applications --> idempotency
+    idempotency --> database
   end
-  pg[(PostgreSQL)]
-  redis[(Redis)]
-  r2[(R2 privado)]
-  client --> controllers
-  persistence --> pg
-  limiter --> redis
+
+  postgres[("PostgreSQL")]
+  redis[("Redis")]
+  r2[("Cloudflare R2 privado")]
+  database --> postgres
+  ratelimit --> redis
   storage --> r2

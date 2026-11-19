@@ -1,17 +1,15 @@
 flowchart TB
-  client[Cliente / Swagger]
-  subgraph compose[Docker Compose local]
-    api[API NestJS]
-    tunnel[cloudflared Quick Tunnel - perfil opcional]
-    pg[(PostgreSQL)]
-    redis[(Redis)]
-    pgvol[(Volume PostgreSQL)]
-    redisvol[(Volume Redis AOF)]
-    api -->|SQL + migrações| pg
-    api -->|rate limit| redis
-    tunnel -->|HTTP interno| api
-    pg --- pgvol
-    redis --- redisvol
+  cliente["Cliente HTTP / navegador"]
+
+  subgraph sistema["AdotaPet · containers e serviços da aplicação"]
+    api["API NestJS<br/>REST · JWT · validação · Problem Details<br/>Swagger em /docs"]
+    postgres[("PostgreSQL<br/>Usuários · animais · adoções · idempotência")]
+    redis[("Redis<br/>Rate limiting distribuído")]
   end
-  api -->|URLs assinadas temporárias| r2[(Cloudflare R2 privado)]
-  client -->|HTTPS público temporário| tunnel
+
+  r2[("Cloudflare R2<br/>Armazenamento privado de fotos")]
+
+  cliente -->|HTTPS · JSON ou multipart| api
+  api -->|SQL · migrações na inicialização| postgres
+  api -->|Contadores por janela de tempo| redis
+  api -->|S3 · fotos e URLs assinadas| r2

@@ -1,8 +1,11 @@
-flowchart TB
-  v["Visitante<br/>Pessoa<br/>Consulta animais e cria conta"]
-  a["Adotante<br/>Pessoa<br/>Solicita e acompanha adoções"]
-  o["ONG ou administrador<br/>Pessoa<br/>Cadastra animais e decide seus pedidos"]
-  s["AdotaPet<br/>Sistema de software<br/>API de adoção de animais"]
-  v -->|HTTP / JSON| s
-  a -->|HTTP / JSON e token de sessão| s
-  o -->|HTTP / JSON e token de sessão| s
+flowchart LR
+  visitante["Visitante<br/>Consulta animais e cria conta"]
+  adotante["Adotante<br/>Solicita e acompanha adoções"]
+  responsavel["ONG ou ADMIN responsável<br/>Publica animais e analisa solicitações"]
+  adotapet["AdotaPet<br/>API de adoção de animais"]
+  r2[("Cloudflare R2<br/>Bucket privado de fotos")]
+
+  visitante -->|HTTPS · consulta pública e cadastro| adotapet
+  adotante -->|HTTPS · JWT| adotapet
+  responsavel -->|HTTPS · JWT| adotapet
+  adotapet -->|S3 · upload e leitura assinada| r2

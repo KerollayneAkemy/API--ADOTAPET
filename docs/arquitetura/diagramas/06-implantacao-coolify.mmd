@@ -1,0 +1,23 @@
+flowchart TB
+  usuario["Usuário / cliente HTTP"]
+  r2[("Cloudflare R2<br/>Bucket privado")]
+
+  subgraph hostinger["VPS Hostinger · Ubuntu 24.04"]
+    coolify["Coolify<br/>Gerencia implantação e serviços"]
+    proxy["Proxy do Coolify<br/>HTTPS · domínio configurado"]
+
+    subgraph rede["Rede privada dos serviços Docker"]
+      api["Container da API<br/>NestJS · porta 3000 · /api/health<br/>Migrações ao iniciar · variáveis secretas"]
+      postgres[("Serviço PostgreSQL<br/>Dados relacionais e idempotência")]
+      redis[("Serviço Redis<br/>Rate limiting")]
+    end
+
+    coolify -. configura e acompanha .-> api
+    coolify -. configura roteamento .-> proxy
+    proxy -->|Encaminha tráfego interno| api
+    api -->|DATABASE_URL interno| postgres
+    api -->|REDIS_URL interno| redis
+  end
+
+  usuario -->|HTTPS · domínio da API e Swagger| proxy
+  api -->|S3 · upload e URLs assinadas| r2
