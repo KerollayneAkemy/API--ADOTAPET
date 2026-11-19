@@ -1,28 +1,28 @@
 erDiagram
-  USERS ||--o{ ANIMALS : "responsavel ong_id"
-  USERS ||--o{ APPLICATIONS : "adotante adopter_id"
-  ANIMALS ||--o{ APPLICATIONS : "recebe animal_id"
+  USERS ||--o{ ANIMALS : "ong_id · ON DELETE RESTRICT"
+  USERS ||--o{ APPLICATIONS : "adopter_id · ON DELETE RESTRICT"
+  ANIMALS ||--o{ APPLICATIONS : "animal_id · ON DELETE RESTRICT"
 
   USERS {
     uuid id PK
-    varchar_120 name
-    varchar_254 email UK
-    varchar_256 password_hash
-    varchar_12 role "ADMIN ONG ADOTANTE"
+    varchar(120) name
+    varchar(254) email UK
+    varchar(256) password_hash
+    varchar(12) role "CHECK: ADMIN, ONG ou ADOTANTE"
   }
 
   ANIMALS {
     uuid id PK
-    varchar_120 name
-    varchar_40 species
-    varchar_120 breed
-    varchar_20 sex
-    varchar_20 size
-    varchar_120 city
-    char_2 state
-    integer age
+    varchar(120) name
+    varchar(40) species
+    varchar(120) breed
+    varchar(20) sex
+    varchar(20) size
+    varchar(120) city
+    char(2) state
+    integer age "CHECK: idade >= 0"
     text description
-    varchar_12 status "DISPONIVEL ADOTADO"
+    varchar(12) status "CHECK: DISPONIVEL ou ADOTADO"
     uuid ong_id FK
     text_array photos
   }
@@ -31,15 +31,15 @@ erDiagram
     uuid id PK
     uuid animal_id FK
     uuid adopter_id FK
-    varchar_3000 reason
-    varchar_12 status "PENDENTE APROVADA RECUSADA"
+    varchar(3000) reason
+    varchar(12) status "CHECK + índices únicos parciais"
     timestamptz created_at
   }
 
   IDEMPOTENCY_KEYS {
     text scope_key PK
-    varchar_128 idempotency_key PK
-    char_64 request_hash
+    varchar(128) idempotency_key PK
+    char(64) request_hash
     integer response_status
     jsonb response
     timestamptz created_at
@@ -48,3 +48,8 @@ erDiagram
   %% Chave primária composta: (scope_key, idempotency_key). A tabela não possui FK de usuário.
   %% Índices parciais impedem mais de um pedido pendente por adotante/animal e mais de uma aprovação por animal.
   %% CHECKs restringem papéis, status e idade; schema_migrations registra as migrações aplicadas.
+
+  style USERS fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#172554
+  style ANIMALS fill:#DCFCE7,stroke:#16A34A,stroke-width:2px,color:#14532D
+  style APPLICATIONS fill:#FEF3C7,stroke:#D97706,stroke-width:2px,color:#78350F
+  style IDEMPOTENCY_KEYS fill:#FCE7F3,stroke:#DB2777,stroke-width:2px,color:#831843

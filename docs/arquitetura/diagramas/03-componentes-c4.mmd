@@ -1,35 +1,55 @@
-flowchart TB
-  cliente["Cliente HTTP"] --> controllers
+C4Component
+  title C3 · Componentes internos da API AdotaPet
 
-  subgraph api["AdotaPet API · NestJS"]
-    controllers["Controllers + DTOs<br/>Auth · Animals · Applications · Health"]
-    auth["AuthService + AuthGuard<br/>Cadastro · login · JWT · usuário atual"]
-    animals["AnimalsService<br/>Cadastro · filtros · fotos · autorização"]
-    applications["ApplicationsService<br/>Solicitações · decisão transacional"]
-    idempotency["IdempotencyService<br/>Chave · hash do pedido · resposta durável"]
-    database["DatabaseService<br/>Pool · transações · migrações"]
-    ratelimit["RateLimitGuard + RedisRateLimitService<br/>Limite global por cliente"]
-    storage["R2StorageService<br/>Validação · upload · URL assinada"]
-    observability["Observabilidade<br/>Request-ID · logs JSON · Problem Details"]
+  Person(cliente, "Cliente HTTP", "Envia requisições para a API.")
+  ContainerDb(postgres, "PostgreSQL", "Banco relacional", "Persistência, transações, migrações e respostas idempotentes.")
+  ContainerDb(redis, "Redis", "Cache de contadores", "Rate limiting distribuído entre instâncias.")
+  System_Ext(r2, "Cloudflare R2", "Bucket privado para fotos de animais.")
 
-    controllers --> auth
-    controllers --> animals
-    controllers --> applications
-    controllers --> ratelimit
-    controllers --> observability
-    auth --> database
-    auth --> idempotency
-    animals --> database
-    animals --> idempotency
-    animals --> storage
-    applications --> database
-    applications --> idempotency
-    idempotency --> database
-  end
+  Container_Boundary(api, "API AdotaPet · NestJS") {
+    Component(rate_limit, "RateLimitGuard", "NestJS Guard + Redis", "Aplica limite global por endereço IP; falha fechada quando Redis não responde.")
+    Component(http, "Controllers e DTOs", "NestJS / class-validator", "Expõe rotas, valida entradas e conecta requisições aos serviços.")
+    Component(auth, "Autenticação", "AuthService + AuthGuard", "Cadastro, login, hash de senha, JWT e carregamento do usuário atual.")
+    Component(animals, "Animais", "AnimalsService", "Cadastro, consulta, filtros, autorização do responsável e fotos.")
+    Component(applications, "Solicitações de adoção", "ApplicationsService", "Criação de pedidos e decisões transacionais com bloqueio por animal.")
+    Component(idempotency, "Idempotência", "IdempotencyService", "Canonicaliza o corpo, compara SHA-256 e persiste/responde a chave repetida.")
+    Component(database, "Acesso a dados", "DatabaseService + pg", "Pool PostgreSQL, transações e migrações no início da aplicação.")
+    Component(storage, "Fotos", "R2StorageService + S3 SDK", "Valida conteúdo e tamanho, envia ao R2 e assina URLs temporárias.")
+    Component(observability, "Observabilidade HTTP", "Middleware + filtro global", "Propaga Request-ID, registra logs JSON e converte exceções em Problem Details.")
+  }
 
-  postgres[("PostgreSQL")]
-  redis[("Redis")]
-  r2[("Cloudflare R2 privado")]
-  database --> postgres
-  ratelimit --> redis
-  storage --> r2
+  Rel(cliente, rate_limit, "Envia requisição HTTP", "HTTPS")
+  Rel(rate_limit, http, "Libera requisição dentro do limite")
+  Rel(rate_limit, redis, "Incrementa contador por janela", "Redis / Lua")
+  Rel(http, auth, "Cadastro, login e autorização", "Chamadas internas")
+  Rel(http, animals, "Rotas de animais e fotos", "Chamadas internas")
+  Rel(http, applications, "Rotas de solicitação e decisão", "Chamadas internas")
+  Rel(auth, idempotency, "Protege cadastro repetido")
+  Rel(animals, idempotency, "Protege cadastro e upload")
+  Rel(applications, idempotency, "Protege criação de solicitação")
+  Rel(auth, database, "Consulta e persiste contas", "SQL")
+  Rel(animals, database, "Consulta e persiste animais", "SQL")
+  Rel(applications, database, "Executa transações de adoção", "SQL")
+  Rel(idempotency, database, "Guarda hash e resposta", "SQL")
+  Rel(animals, storage, "Envia foto e solicita URL assinada")
+  Rel(storage, r2, "Grava e lê objetos privados", "S3 API · HTTPS")
+  Rel(http, observability, "Request-ID e erros HTTP")
+  Rel(auth, observability, "Eventos de autenticação")
+  Rel(animals, observability, "Eventos de animais e fotos")
+  Rel(applications, observability, "Eventos de adoção")
+  Rel(database, observability, "Duração e resultado SQL")
+
+  UpdateElementStyle(cliente, $bgColor="#FFF7ED", $fontColor="#7C2D12", $borderColor="#EA580C")
+  UpdateElementStyle(rate_limit, $bgColor="#FEF3C7", $fontColor="#78350F", $borderColor="#D97706")
+  UpdateElementStyle(http, $bgColor="#DBEAFE", $fontColor="#172554", $borderColor="#2563EB")
+  UpdateElementStyle(auth, $bgColor="#E0E7FF", $fontColor="#312E81", $borderColor="#4F46E5")
+  UpdateElementStyle(animals, $bgColor="#E0E7FF", $fontColor="#312E81", $borderColor="#4F46E5")
+  UpdateElementStyle(applications, $bgColor="#E0E7FF", $fontColor="#312E81", $borderColor="#4F46E5")
+  UpdateElementStyle(idempotency, $bgColor="#FCE7F3", $fontColor="#831843", $borderColor="#DB2777")
+  UpdateElementStyle(database, $bgColor="#DCFCE7", $fontColor="#14532D", $borderColor="#16A34A")
+  UpdateElementStyle(storage, $bgColor="#F3E8FF", $fontColor="#581C87", $borderColor="#9333EA")
+  UpdateElementStyle(observability, $bgColor="#F1F5F9", $fontColor="#0F172A", $borderColor="#475569")
+  UpdateElementStyle(postgres, $bgColor="#DCFCE7", $fontColor="#14532D", $borderColor="#16A34A")
+  UpdateElementStyle(redis, $bgColor="#FEF3C7", $fontColor="#78350F", $borderColor="#D97706")
+  UpdateElementStyle(r2, $bgColor="#F3E8FF", $fontColor="#581C87", $borderColor="#9333EA")
+  UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

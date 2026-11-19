@@ -1,23 +1,35 @@
-flowchart TB
-  usuario["Usuário / cliente HTTP"]
-  r2[("Cloudflare R2<br/>Bucket privado")]
+C4Deployment
+  title Implantação · Hostinger VPS e Coolify
 
-  subgraph hostinger["VPS Hostinger · Ubuntu 24.04"]
-    coolify["Coolify<br/>Gerencia implantação e serviços"]
-    proxy["Proxy do Coolify<br/>HTTPS · domínio configurado"]
+  Person(usuario, "Usuário", "Acessa a API e o Swagger pelo domínio HTTPS configurado.")
+  System_Ext(r2, "Cloudflare R2", "Bucket privado de fotos, acessado pela API via S3.")
 
-    subgraph rede["Rede privada dos serviços Docker"]
-      api["Container da API<br/>NestJS · porta 3000 · /api/health<br/>Migrações ao iniciar · variáveis secretas"]
-      postgres[("Serviço PostgreSQL<br/>Dados relacionais e idempotência")]
-      redis[("Serviço Redis<br/>Rate limiting")]
-    end
+  Deployment_Node(hostinger, "VPS Hostinger", "Ubuntu 24.04") {
+    Deployment_Node(docker, "Docker Engine", "Rede privada dos serviços") {
+      Container(proxy, "Proxy HTTPS", "Proxy gerenciado pelo Coolify", "Recebe o domínio e encaminha as requisições à API.")
+      Container(api, "AdotaPet API", "Container Docker · Node.js / NestJS", "Porta 3000; aplica migrações ao iniciar; health check em /api/health.")
+      ContainerDb(postgres, "PostgreSQL", "Container / serviço conectado", "Armazena dados relacionais e operações idempotentes.")
+      ContainerDb(redis, "Redis", "Container / serviço conectado", "Mantém os contadores do rate limiting.")
+    }
 
-    coolify -. configura e acompanha .-> api
-    coolify -. configura roteamento .-> proxy
-    proxy -->|Encaminha tráfego interno| api
-    api -->|DATABASE_URL interno| postgres
-    api -->|REDIS_URL interno| redis
-  end
+    Deployment_Node(coolify, "Coolify", "Painel de implantação") {
+      Container(coolify_ui, "Painel Coolify", "Aplicação de gerenciamento", "Configura e acompanha a implantação dos serviços.")
+    }
+  }
 
-  usuario -->|HTTPS · domínio da API e Swagger| proxy
-  api -->|S3 · upload e URLs assinadas| r2
+  Rel(usuario, proxy, "Acessa API e Swagger", "HTTPS · domínio configurado")
+  Rel(proxy, api, "Encaminha tráfego ao serviço", "Rede Docker · HTTP")
+  Rel(api, postgres, "Conecta pelo DATABASE_URL interno", "SQL · PostgreSQL")
+  Rel(api, redis, "Conecta pelo REDIS_URL interno", "Redis")
+  Rel(api, r2, "Faz upload e gera URL assinada", "S3 API · HTTPS")
+  Rel(coolify_ui, api, "Configura build, variáveis e implantação", "Docker")
+  Rel(coolify_ui, proxy, "Gerencia roteamento e TLS")
+
+  UpdateElementStyle(usuario, $bgColor="#FFF7ED", $fontColor="#7C2D12", $borderColor="#EA580C")
+  UpdateElementStyle(proxy, $bgColor="#E0E7FF", $fontColor="#312E81", $borderColor="#4F46E5")
+  UpdateElementStyle(api, $bgColor="#DBEAFE", $fontColor="#172554", $borderColor="#2563EB")
+  UpdateElementStyle(postgres, $bgColor="#DCFCE7", $fontColor="#14532D", $borderColor="#16A34A")
+  UpdateElementStyle(redis, $bgColor="#FEF3C7", $fontColor="#78350F", $borderColor="#D97706")
+  UpdateElementStyle(r2, $bgColor="#F3E8FF", $fontColor="#581C87", $borderColor="#9333EA")
+  UpdateElementStyle(coolify_ui, $bgColor="#FCE7F3", $fontColor="#831843", $borderColor="#DB2777")
+  UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

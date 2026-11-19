@@ -1,15 +1,23 @@
-flowchart TB
-  cliente["Cliente HTTP / navegador"]
+C4Container
+  title C2 · Containers e serviços do AdotaPet
 
-  subgraph sistema["AdotaPet · containers e serviços da aplicação"]
-    api["API NestJS<br/>REST · JWT · validação · Problem Details<br/>Swagger em /docs"]
-    postgres[("PostgreSQL<br/>Usuários · animais · adoções · idempotência")]
-    redis[("Redis<br/>Rate limiting distribuído")]
-  end
+  Person(cliente, "Cliente da API", "Pessoa ou aplicação que acessa a API e o Swagger pelo navegador.")
+  System_Ext(r2, "Cloudflare R2", "Bucket privado para imagens; acesso por URLs assinadas temporárias.")
 
-  r2[("Cloudflare R2<br/>Armazenamento privado de fotos")]
+  System_Boundary(adotapet, "AdotaPet · serviços da aplicação") {
+    Container(api, "API", "Node.js · NestJS · TypeScript", "REST, autenticação JWT, validação, regras de negócio, Problem Details e Swagger em /docs.")
+    ContainerDb(postgres, "Banco de dados", "PostgreSQL", "Usuários, animais, solicitações, idempotência e histórico de migrações.")
+    ContainerDb(redis, "Rate limiter", "Redis", "Contadores atômicos compartilhados entre instâncias da API.")
+  }
 
-  cliente -->|HTTPS · JSON ou multipart| api
-  api -->|SQL · migrações na inicialização| postgres
-  api -->|Contadores por janela de tempo| redis
-  api -->|S3 · fotos e URLs assinadas| r2
+  Rel(cliente, api, "Usa API e Swagger", "HTTPS · JSON / multipart")
+  Rel(api, postgres, "Lê e grava dados; aplica migrações ao iniciar", "SQL · pg")
+  Rel(api, redis, "Atualiza e consulta limite por IP", "Redis · Lua")
+  Rel(api, r2, "Armazena fotos e gera URLs de leitura", "S3 API · HTTPS")
+
+  UpdateElementStyle(cliente, $bgColor="#FFF7ED", $fontColor="#7C2D12", $borderColor="#EA580C")
+  UpdateElementStyle(api, $bgColor="#DBEAFE", $fontColor="#172554", $borderColor="#2563EB")
+  UpdateElementStyle(postgres, $bgColor="#DCFCE7", $fontColor="#14532D", $borderColor="#16A34A")
+  UpdateElementStyle(redis, $bgColor="#FEF3C7", $fontColor="#78350F", $borderColor="#D97706")
+  UpdateElementStyle(r2, $bgColor="#F3E8FF", $fontColor="#581C87", $borderColor="#9333EA")
+  UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

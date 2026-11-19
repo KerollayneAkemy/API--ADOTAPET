@@ -1,11 +1,20 @@
-flowchart LR
-  visitante["Visitante<br/>Consulta animais e cria conta"]
-  adotante["Adotante<br/>Solicita e acompanha adoções"]
-  responsavel["ONG ou ADMIN responsável<br/>Publica animais e analisa solicitações"]
-  adotapet["AdotaPet<br/>API de adoção de animais"]
-  r2[("Cloudflare R2<br/>Bucket privado de fotos")]
+C4Context
+  title C1 · Contexto do sistema AdotaPet
 
-  visitante -->|HTTPS · consulta pública e cadastro| adotapet
-  adotante -->|HTTPS · JWT| adotapet
-  responsavel -->|HTTPS · JWT| adotapet
-  adotapet -->|S3 · upload e leitura assinada| r2
+  Person(visitante, "Visitante", "Consulta animais e pode criar uma conta.")
+  Person(adotante, "Adotante", "Solicita adoção e acompanha os próprios pedidos.")
+  Person(responsavel, "ONG ou ADMIN responsável", "Publica animais e decide pedidos somente dos animais sob sua responsabilidade.")
+  System(adotapet, "AdotaPet API", "API REST para cadastro, consulta e adoção de animais.")
+  System_Ext(r2, "Cloudflare R2", "Armazena fotos em bucket privado; a API emite URLs temporárias assinadas.")
+
+  Rel(visitante, adotapet, "Consulta animais e cria conta", "HTTPS / JSON")
+  Rel(adotante, adotapet, "Solicita e acompanha adoções", "HTTPS / JSON · JWT")
+  Rel(responsavel, adotapet, "Gerencia animais e analisa solicitações", "HTTPS / JSON · JWT")
+  Rel(adotapet, r2, "Envia fotos e cria URLs assinadas de leitura", "S3 API")
+
+  UpdateElementStyle(visitante, $bgColor="#FFF7ED", $fontColor="#7C2D12", $borderColor="#EA580C")
+  UpdateElementStyle(adotante, $bgColor="#FFF7ED", $fontColor="#7C2D12", $borderColor="#EA580C")
+  UpdateElementStyle(responsavel, $bgColor="#FFF7ED", $fontColor="#7C2D12", $borderColor="#EA580C")
+  UpdateElementStyle(adotapet, $bgColor="#DBEAFE", $fontColor="#172554", $borderColor="#2563EB")
+  UpdateElementStyle(r2, $bgColor="#F3E8FF", $fontColor="#581C87", $borderColor="#9333EA")
+  UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
