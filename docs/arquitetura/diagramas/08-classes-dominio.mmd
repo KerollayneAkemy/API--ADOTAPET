@@ -1,0 +1,74 @@
+classDiagram
+  direction LR
+
+  class User {
+    +UUID id
+    +string name
+    +string email
+    +string passwordHash
+    +Role role
+  }
+  class Animal {
+    +UUID id
+    +string name
+    +string species
+    +string breed
+    +string sex
+    +string size
+    +string city
+    +string state
+    +int age
+    +string description
+    +AnimalStatus status
+    +UUID ongId
+    +string[] photos
+  }
+  class Application {
+    +UUID id
+    +UUID animalId
+    +UUID adopterId
+    +string reason
+    +ApplicationStatus status
+  }
+  class IdempotencyKey {
+    +string scopeKey
+    +string key
+    +string requestHash
+    +int responseStatus
+    +JSON response
+    +Date createdAt
+  }
+  class PublicUser {
+    +UUID id
+    +string name
+    +string email
+    +Role role
+  }
+  class Role {
+    <<enumeration>>
+    ADMIN
+    ONG
+    ADOTANTE
+  }
+  class AnimalStatus {
+    <<enumeration>>
+    DISPONIVEL
+    ADOTADO
+  }
+  class ApplicationStatus {
+    <<enumeration>>
+    PENDENTE
+    APROVADA
+    RECUSADA
+  }
+
+  User "1" --> "0..*" Animal : responsável
+  User "1" --> "0..*" Application : solicita
+  Animal "1" --> "0..*" Application : recebe
+  User ..> PublicUser : projeção sem passwordHash
+  User --> Role
+  Animal --> AnimalStatus
+  Application --> ApplicationStatus
+
+  note for Animal "photos guarda IDs de objetos R2; não existe tabela relacional Photo."
+  note for IdempotencyKey "Chave primária composta: (scopeKey, key)."

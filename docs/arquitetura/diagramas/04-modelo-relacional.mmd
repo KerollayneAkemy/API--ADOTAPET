@@ -1,55 +1,50 @@
 erDiagram
-  USERS ||--o{ ANIMALS : "ong_id · ON DELETE RESTRICT"
-  USERS ||--o{ APPLICATIONS : "adopter_id · ON DELETE RESTRICT"
-  ANIMALS ||--o{ APPLICATIONS : "animal_id · ON DELETE RESTRICT"
+  USERS ||--o{ ANIMALS : "ong_id · responsável"
+  USERS ||--o{ APPLICATIONS : "adopter_id · adotante"
+  ANIMALS ||--o{ APPLICATIONS : "animal_id · pedidos"
 
   USERS {
     uuid id PK
-    varchar(120) name
-    varchar(254) email UK
-    varchar(256) password_hash
-    varchar(12) role "CHECK: ADMIN, ONG ou ADOTANTE"
+    varchar name
+    varchar email UK
+    varchar password_hash
+    varchar role "ADMIN | ONG | ADOTANTE"
   }
 
   ANIMALS {
     uuid id PK
-    varchar(120) name
-    varchar(40) species
-    varchar(120) breed
-    varchar(20) sex
-    varchar(20) size
-    varchar(120) city
-    char(2) state
-    integer age "CHECK: idade >= 0"
+    varchar name
+    varchar species
+    varchar breed
+    varchar sex
+    varchar size
+    varchar city
+    char state
+    integer age
     text description
-    varchar(12) status "CHECK: DISPONIVEL ou ADOTADO"
+    varchar status "DISPONIVEL | ADOTADO"
     uuid ong_id FK
-    text_array photos
+    text_array photos "IDs dos objetos R2"
   }
 
   APPLICATIONS {
     uuid id PK
     uuid animal_id FK
     uuid adopter_id FK
-    varchar(3000) reason
-    varchar(12) status "CHECK + índices únicos parciais"
+    varchar reason
+    varchar status "PENDENTE | APROVADA | RECUSADA"
     timestamptz created_at
   }
 
   IDEMPOTENCY_KEYS {
     text scope_key PK
-    varchar(128) idempotency_key PK
+    varchar idempotency_key PK
     char(64) request_hash
     integer response_status
     jsonb response
     timestamptz created_at
   }
 
-  %% Chave primária composta: (scope_key, idempotency_key). A tabela não possui FK de usuário.
-  %% Índices parciais impedem mais de um pedido pendente por adotante/animal e mais de uma aprovação por animal.
-  %% CHECKs restringem papéis, status e idade; schema_migrations registra as migrações aplicadas.
-
-  style USERS fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#172554
-  style ANIMALS fill:#DCFCE7,stroke:#16A34A,stroke-width:2px,color:#14532D
-  style APPLICATIONS fill:#FEF3C7,stroke:#D97706,stroke-width:2px,color:#78350F
-  style IDEMPOTENCY_KEYS fill:#FCE7F3,stroke:#DB2777,stroke-width:2px,color:#831843
+  %% O par (scope_key, idempotency_key) identifica cada operação durável.
+  %% Índices parciais permitem um pedido pendente por adotante/animal e uma aprovação por animal.
+  %% A tabela de migrações é infraestrutura interna, não dado de domínio.

@@ -1,0 +1,51 @@
+@startuml
+ title AdotaPet — Diagrama de casos de uso
+ left to right direction
+ skinparam shadowing false
+ skinparam packageStyle rectangle
+ skinparam usecase {
+   BackgroundColor #EFF6FF
+   BorderColor #2563EB
+   ArrowColor #475569
+ }
+ skinparam rectangle {
+   BorderColor #334155
+   FontColor #0F172A
+ }
+
+ actor Visitante
+ actor Adotante
+ actor "Responsável pelo animal\n(ONG ou ADMIN vinculado)" as Responsavel
+
+ Adotante --|> Visitante
+
+ rectangle "AdotaPet API" {
+   usecase "Consultar e filtrar animais" as UC1
+   usecase "Cadastrar conta\n(ONG ou ADOTANTE)" as UC2
+   usecase "Entrar e obter JWT" as UC3
+   usecase "Solicitar adoção" as UC4
+   usecase "Consultar minhas solicitações" as UC5
+   usecase "Cadastrar animal" as UC6
+   usecase "Enviar foto do animal" as UC7
+   usecase "Aprovar solicitação" as UC8
+   usecase "Recusar solicitação" as UC9
+ }
+
+ Visitante --> UC1
+ Visitante --> UC2
+ Visitante --> UC3
+ Adotante --> UC4
+ Adotante --> UC5
+ Responsavel --> UC1
+ Responsavel --> UC5
+ Responsavel --> UC6
+ Responsavel --> UC7
+ Responsavel --> UC8
+ Responsavel --> UC9
+
+ note bottom of UC8
+   Só o responsável vinculado ao animal pode decidir,
+   inclusive quando seu papel é ADMIN.
+   O cadastro público não cria contas ADMIN.
+ end note
+@enduml

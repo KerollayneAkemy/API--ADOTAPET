@@ -228,7 +228,7 @@ docker compose stop cloudflared
 
 ## 🗺️ Diagramas
 
-Os diagramas editáveis da arquitetura, fluxos e modelo relacional ficam em [`docs/arquitetura/diagramas/`](docs/arquitetura/diagramas/). Eles representam PostgreSQL como persistência, Redis para rate limiting e R2 privado para fotos.
+Os diagramas editáveis da arquitetura e do domínio estão em [`docs/arquitetura/diagramas/`](docs/arquitetura/diagramas/README.md): C4 (contexto, containers, componentes e implantação), ER, UML de casos de uso, classes, atividade e sequência. Eles descrevem PostgreSQL, Redis e R2 privado de acordo com a implementação atual.
 
 ## 👥 Autoria
 

@@ -1,26 +1,32 @@
 sequenceDiagram
   autonumber
-  actor responsavel as Responsável
-  participant api as API AdotaPet
-  participant db as PostgreSQL
-  Note over responsavel,db: Aprovação transacional com bloqueio por animal.
+  actor Responsavel as ONG ou ADMIN responsável
+  participant API as API AdotaPet
+  participant Guard as AuthGuard
+  participant Servico as ApplicationsService
+  participant PG as PostgreSQL
 
-  responsavel->>api: PATCH /api/applications/{id}/approve (JWT)
-  api->>db: BEGIN
-  api->>db: Busca solicitação e identifica o animal
-  api->>db: SELECT animal FOR UPDATE
-  Note over api,db: A trava serializa decisões do mesmo animal.
-  api->>db: SELECT solicitação FOR UPDATE
+  Responsavel->>API: PATCH /api/applications/{id}/approve + JWT
+  API->>Guard: Validar assinatura, expiração e usuário
+  Guard-->>API: Usuário autenticado
+  API->>Servico: decide(user, id, approve=true)
+  Servico->>PG: BEGIN
+  Servico->>PG: Buscar animal_id da solicitação
+  Servico->>PG: SELECT animal FOR UPDATE
+  Note over Servico,PG: A trava do animal serializa decisões concorrentes.
+  Servico->>PG: SELECT solicitação FOR UPDATE
 
-  alt Responsável autorizado e pedido pendente
-    api->>db: Marca solicitação como APROVADA
-    api->>db: Marca animal como ADOTADO
-    api->>db: Recusa os demais pedidos PENDENTE
-    api->>db: COMMIT
-    db-->>api: Transação concluída
-    api-->>responsavel: 200 · solicitação aprovada
-  else Pedido inválido, já analisado ou sem permissão
-    api->>db: ROLLBACK
-    db-->>api: Nenhuma alteração persistida
-    api-->>responsavel: 403, 404 ou 409 · Problem Details
+  alt Usuário é responsável e pedido está pendente
+    Servico->>PG: Marcar solicitação como APROVADA
+    Servico->>PG: Marcar animal como ADOTADO
+    Servico->>PG: Recusar os demais pedidos pendentes
+    Servico->>PG: COMMIT
+    PG-->>Servico: Transação confirmada
+    Servico-->>API: Solicitação aprovada
+    API-->>Responsavel: 200 · resposta JSON
+  else Sem permissão, inexistente ou já analisada
+    Servico->>PG: ROLLBACK
+    PG-->>Servico: Nenhuma alteração confirmada
+    Servico-->>API: Erro de domínio
+    API-->>Responsavel: 403, 404 ou 409 · Problem Details
   end

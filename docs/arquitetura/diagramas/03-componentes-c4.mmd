@@ -1,25 +1,22 @@
 C4Component
-  title C3 · Componentes internos da API AdotaPet
+  title C3 · Componentes internos da API
 
-  Container_Boundary(api, "API AdotaPet · NestJS") {
-    Component(http, "Controllers e DTOs", "NestJS", "Rotas e validação.")
-    Component(domain, "Serviços de negócio", "Auth · Animals · Applications", "Contas, animais e adoções.")
-    Component(persistence, "Persistência e idempotência", "PostgreSQL · DatabaseService · IdempotencyService", "Transações, migrações e respostas duráveis.")
-    Component(storage, "Fotos", "R2StorageService · Cloudflare R2", "Validação, upload e URL assinada.")
-    Component(rate_limit, "Rate limit", "RateLimitGuard · Redis", "Limite por IP em todas as rotas.")
-    Component(observability, "Observabilidade", "Middleware + filtro", "Request-ID, logs e Problem Details.")
+  Container_Boundary(api, "AdotaPet API · NestJS") {
+    Component(http, "Controllers e DTOs", "NestJS", "Expõem rotas HTTP e validam entradas.")
+    Component(auth, "Autenticação", "AuthService · AuthGuard", "Hash de senha, JWT e identidade pública.")
+    Component(animals, "Animais", "AnimalsService", "Cadastro, consulta, autorização do responsável e fotos.")
+    Component(applications, "Adoções", "ApplicationsService", "Solicitações, autorização e decisão transacional.")
+    Component(data, "Persistência", "DatabaseService · IdempotencyService", "PostgreSQL, transações e respostas duráveis.")
+    Component(platform, "Adaptadores e observabilidade", "R2Storage · RateLimitGuard · Request-ID", "Integra R2 e Redis; registra logs e respostas Problem Details.")
   }
 
-  Rel(http, domain, "Rotas")
-  Rel(domain, persistence, "Dados")
-  Rel(domain, storage, " ")
-  Rel(http, rate_limit, " ")
-  Rel(http, observability, "Logs")
+  Rel(http, auth, "Autentica rotas protegidas")
+  Rel(http, animals, "Rotas de animais")
+  Rel(http, applications, "Rotas de adoção")
+  Rel(auth, data, "Usuários e idempotência")
+  Rel(animals, data, "Animais e fotos")
+  Rel(applications, data, "Transações e idempotência")
+  Rel(http, platform, "Limite e observabilidade")
+  Rel(animals, platform, "Fotos via R2Storage")
 
-  UpdateElementStyle(rate_limit, $bgColor="#FEF3C7", $fontColor="#78350F", $borderColor="#D97706")
-  UpdateElementStyle(http, $bgColor="#DBEAFE", $fontColor="#172554", $borderColor="#2563EB")
-  UpdateElementStyle(domain, $bgColor="#E0E7FF", $fontColor="#312E81", $borderColor="#4F46E5")
-  UpdateElementStyle(persistence, $bgColor="#FCE7F3", $fontColor="#831843", $borderColor="#DB2777")
-  UpdateElementStyle(storage, $bgColor="#F3E8FF", $fontColor="#581C87", $borderColor="#9333EA")
-  UpdateElementStyle(observability, $bgColor="#F1F5F9", $fontColor="#0F172A", $borderColor="#475569")
-  UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+  UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
