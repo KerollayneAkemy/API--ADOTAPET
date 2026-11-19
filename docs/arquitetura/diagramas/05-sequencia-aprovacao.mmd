@@ -1,32 +1,26 @@
 sequenceDiagram
   autonumber
-  actor responsavel as Responsável (ONG ou ADMIN)
+  actor responsavel as Responsável
   participant api as API AdotaPet
   participant db as PostgreSQL
-  Note over responsavel,db: Aprovação de pedido pendente com controle de concorrência.
+  Note over responsavel,db: Aprovação transacional com bloqueio por animal.
 
-  rect rgb(239, 246, 255)
-    responsavel->>+api: PATCH /api/applications/{id}/approve + JWT
-    api->>+db: BEGIN
-    api->>db: Busca solicitação e identifica o animal
-    api->>db: SELECT animal FOR UPDATE
-    Note over api,db: A trava serializa decisões concorrentes do mesmo animal.
-    api->>db: SELECT solicitação FOR UPDATE
-  end
+  responsavel->>api: PATCH /api/applications/{id}/approve (JWT)
+  api->>db: BEGIN
+  api->>db: Busca solicitação e identifica o animal
+  api->>db: SELECT animal FOR UPDATE
+  Note over api,db: A trava serializa decisões do mesmo animal.
+  api->>db: SELECT solicitação FOR UPDATE
 
   alt Responsável autorizado e pedido pendente
-    rect rgb(240, 253, 244)
-      api->>db: Marca solicitação como APROVADA
-      api->>db: Marca animal como ADOTADO
-      api->>db: Recusa os demais pedidos PENDENTE
-      api->>db: COMMIT
-    end
-    db-->>-api: Transação concluída
-    api-->>-responsavel: 200 · solicitação aprovada
+    api->>db: Marca solicitação como APROVADA
+    api->>db: Marca animal como ADOTADO
+    api->>db: Recusa os demais pedidos PENDENTE
+    api->>db: COMMIT
+    db-->>api: Transação concluída
+    api-->>responsavel: 200 · solicitação aprovada
   else Pedido inválido, já analisado ou sem permissão
-    rect rgb(254, 242, 242)
-      api->>db: ROLLBACK
-    end
-    db-->>-api: Nenhuma alteração persistida
-    api-->>-responsavel: 403, 404 ou 409 · Problem Details
+    api->>db: ROLLBACK
+    db-->>api: Nenhuma alteração persistida
+    api-->>responsavel: 403, 404 ou 409 · Problem Details
   end

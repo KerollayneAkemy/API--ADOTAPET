@@ -1,20 +1,17 @@
 C4Context
   title C1 · Contexto do sistema AdotaPet
 
-  Person(visitante, "Visitante", "Consulta animais e pode criar uma conta.")
-  Person(adotante, "Adotante", "Solicita adoção e acompanha os próprios pedidos.")
-  Person(responsavel, "ONG ou ADMIN responsável", "Publica animais e decide pedidos somente dos animais sob sua responsabilidade.")
-  System(adotapet, "AdotaPet API", "API REST para cadastro, consulta e adoção de animais.")
-  System_Ext(r2, "Cloudflare R2", "Armazena fotos em bucket privado; a API emite URLs temporárias assinadas.")
+  Person(adotante, "Visitante ou adotante", "Consulta animais e solicita adoção.")
+  Person(responsavel, "Responsável · ONG ou ADMIN", "Gerencia seus animais e solicitações.")
+  System(adotapet, "AdotaPet API", "Cadastro, consulta e adoção de animais.")
+  System_Ext(r2, "Cloudflare R2", "Bucket privado; acesso por URL assinada.")
 
-  Rel(visitante, adotapet, "Consulta animais e cria conta", "HTTPS / JSON")
-  Rel(adotante, adotapet, "Solicita e acompanha adoções", "HTTPS / JSON · JWT")
-  Rel(responsavel, adotapet, "Gerencia animais e analisa solicitações", "HTTPS / JSON · JWT")
-  Rel(adotapet, r2, "Envia fotos e cria URLs assinadas de leitura", "S3 API")
+  Rel(adotante, adotapet, "Consulta / adoção")
+  Rel(responsavel, adotapet, "Gerencia")
+  Rel(adotapet, r2, "Fotos")
 
-  UpdateElementStyle(visitante, $bgColor="#FFF7ED", $fontColor="#7C2D12", $borderColor="#EA580C")
   UpdateElementStyle(adotante, $bgColor="#FFF7ED", $fontColor="#7C2D12", $borderColor="#EA580C")
   UpdateElementStyle(responsavel, $bgColor="#FFF7ED", $fontColor="#7C2D12", $borderColor="#EA580C")
   UpdateElementStyle(adotapet, $bgColor="#DBEAFE", $fontColor="#172554", $borderColor="#2563EB")
   UpdateElementStyle(r2, $bgColor="#F3E8FF", $fontColor="#581C87", $borderColor="#9333EA")
-  UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+  UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
