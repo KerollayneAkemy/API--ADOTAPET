@@ -2,7 +2,7 @@
 
 API REST para conectar pessoas interessadas em adoção a organizações responsáveis por animais. O projeto oferece cadastro e autenticação, publicação de animais, solicitações de adoção, análise dos pedidos e armazenamento privado de fotos.
 
-> **Autoria:** KerollayneAkemy, Emily2311 e AnaLuiza2431.
+> **Autoria:** Kerollayne Akemy (`@KerollayneAkemy`), Emily Pereira (`@Emily2311`) e Ana Luiza (`@AnaLuiza2431`).
 
 ## Sumário
 
@@ -194,4 +194,4 @@ VPS e Coolify são opções de hospedagem, não requisitos para desenvolver ou a
 
 ## Autoria
 
-Desenvolvido por **KerollayneAkemy**, **Emily2311** e **AnaLuiza2431**.
+Desenvolvido por **Kerollayne Akemy** (`@KerollayneAkemy`), **Emily Pereira** (`@Emily2311`) e **Ana Luiza** (`@AnaLuiza2431`).
