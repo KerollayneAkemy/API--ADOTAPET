@@ -1,5 +1,7 @@
 # 🐾 AdotaPet API
 
+⛓️‍💥 https://meuadotapet.duckdns.org/docs
+
 **Backend para conectar organizações de proteção animal e pessoas interessadas em adoção.**
 
 A API reúne cadastro de animais, solicitações de adoção e gerenciamento de fotos, com autenticação e persistência em PostgreSQL.
